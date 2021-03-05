@@ -4,6 +4,8 @@ import "context"
 
 type Provider interface {
 	KeyStores() ([]*KeyStore, error)
+	Open() error
+	Close() error
 }
 
 type DynamicProvider interface {

@@ -5,6 +5,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Pkcs11Provider struct {
+	driverPath string
+	pkcs11Ctx  *pkcs11.Ctx
+	slotId     uint
+	tokenInfo  *pkcs11.TokenInfo
+	slotInfo   *pkcs11.SlotInfo
+}
+
 type Pkcs11KeyStore struct {
 	driverPath string
 	pkcs11Ctx  *pkcs11.Ctx

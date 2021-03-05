@@ -18,6 +18,14 @@ type InMemoryKeyStore struct {
 	keyPairs []*InMemoryKeyPair
 }
 
+func (imks *InMemoryKeyStore) Open() error {
+	panic("implement me")
+}
+
+func (imks *InMemoryKeyStore) Close() error {
+	panic("implement me")
+}
+
 func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []KeyAlgorithm {
 	algs := []KeyAlgorithm{KeyAlgRSA2048, KeyAlgECP256}
 	return algs
