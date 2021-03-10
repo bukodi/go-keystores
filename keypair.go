@@ -14,6 +14,7 @@ type KeyPairId string
 
 type KeyPair interface {
 	Id() KeyPairId
+	Label() string
 	Algorithm() KeyAlgorithm
 	KeyStore() KeyStore
 	Public() crypto.PublicKey

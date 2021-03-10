@@ -13,6 +13,7 @@ import (
 	"github.com/bukodi/go-keystores"
 	"io"
 	"math/big"
+	"unsafe"
 )
 
 type InMemoryKeyStore struct {
@@ -23,19 +24,24 @@ type InMemoryKeyStore struct {
 var _ keystores.KeyStore = &InMemoryKeyStore{}
 
 func (imks *InMemoryKeyStore) Id() string {
-	panic("implement me")
+	ptr := uintptr(unsafe.Pointer(imks))
+	return fmt.Sprintf("%v", ptr)
 }
 
 func (imks *InMemoryKeyStore) Name() string {
-	panic("implement me")
+	return "In memory key store"
 }
 
 func (imks *InMemoryKeyStore) Open() error {
-	panic("implement me")
+	return keystores.ErrorHandler(keystores.ErrAlreadyOpen, imks)
 }
 
 func (imks *InMemoryKeyStore) Close() error {
-	panic("implement me")
+	return keystores.ErrorHandler(keystores.ErrOperationNotSupportedByKeyStore, imks)
+}
+
+func (imks *InMemoryKeyStore) IsOpen() bool {
+	return true
 }
 
 func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
@@ -132,8 +138,15 @@ type InMemoryKeyPair struct {
 	label       string
 }
 
+// Check whether implements the keystores.KeyPair interface
+var _ keystores.KeyPair = &InMemoryKeyPair{}
+
 func (i *InMemoryKeyPair) Id() keystores.KeyPairId {
 	return i.id
+}
+
+func (i *InMemoryKeyPair) Label() string {
+	return i.label
 }
 
 func (i *InMemoryKeyPair) Algorithm() keystores.KeyAlgorithm {

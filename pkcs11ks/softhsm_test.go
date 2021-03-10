@@ -1,6 +1,7 @@
 package pkcs11ks
 
 import (
+	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
 	"io/ioutil"
 	"os"
@@ -79,16 +80,11 @@ func TestSoftHSM(t *testing.T) {
 func TestListPksc11KeyStores(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
-	err := p.Open()
+	err := keystores.EnsureOpen(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		err := p.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
+	defer keystores.MustClosed(p)
 
 	ksList, errs := p.KeyStores()
 	if errs != nil {
@@ -101,5 +97,35 @@ func TestListPksc11KeyStores(t *testing.T) {
 	for i, ks := range ksList {
 		t.Logf("%d. %s : %s", i, ks.Id(), ks.Name())
 	}
+
+}
+
+func TestRsaGenSignVerify(t *testing.T) {
+	initSoftHSM2TestEnv(t)
+	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	err := keystores.EnsureOpen(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer keystores.MustClosed(p)
+
+	ks, err := p.FindKeyStore("TestTokenA", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = keystores.EnsureOpen(ks)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer keystores.MustClosed(ks)
+
+	kp, err := ks.CreateKeyPair(keystores.KeyAlgRSA2048, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Label: %s, PubKey: %v", kp.Label(), kp.Public())
+	_ = kp.Public()
 
 }

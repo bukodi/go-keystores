@@ -7,8 +7,6 @@ import (
 
 var (
 	ErrOperationNotSupportedByKeyStore = errors.New("operation not supported by key store")
-	ErrKeyStoreAlreadyOpen             = errors.New("key store already open")
-	ErrKeyStoreAlreadyClosed           = errors.New("key store already closed")
 )
 
 type KeyStore interface {
@@ -17,6 +15,7 @@ type KeyStore interface {
 	Name() string
 	Open() error
 	Close() error
+	IsOpen() bool
 	SupportedPrivateKeyAlgorithms() []KeyAlgorithm
 	KeyPairs() []KeyPair // TODO add return []error
 	CreateKeyPair(privateKeyAlgorithm KeyAlgorithm, opts interface{}) (kp KeyPair, err error)

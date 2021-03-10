@@ -27,7 +27,7 @@ func NewPkcs11Provider(config Pkcs11Config) *Pkcs11Provider {
 
 func (p *Pkcs11Provider) Open() error {
 	if p.pkcs11Ctx != nil {
-		return keystores.ErrorHandler(keystores.ErrKeyStoreAlreadyOpen, p)
+		return keystores.ErrorHandler(keystores.ErrAlreadyOpen, p)
 	}
 	p11Ctx := p11api.New(p.driverPath)
 	err := p11Ctx.Initialize()
@@ -40,13 +40,18 @@ func (p *Pkcs11Provider) Open() error {
 
 func (p *Pkcs11Provider) Close() error {
 	if p.pkcs11Ctx == nil {
-		return keystores.ErrorHandler(keystores.ErrKeyStoreAlreadyClosed, p)
+		return keystores.ErrorHandler(keystores.ErrAlreadyClosed, p)
 	}
 	err := p.pkcs11Ctx.Finalize()
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
+	p.pkcs11Ctx = nil
 	return nil
+}
+
+func (p *Pkcs11Provider) IsOpen() bool {
+	return p.pkcs11Ctx != nil
 }
 
 func (p *Pkcs11Provider) KeyStores() ([]keystores.KeyStore, []error) {

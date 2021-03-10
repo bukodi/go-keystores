@@ -7,14 +7,13 @@ import (
 
 var (
 	ErrOperationNotSupportedByProvider = errors.New("operation not supported by keystore provider")
-	ErrProviderAlreadyOpen             = errors.New("provider already open")
-	ErrProviderAlreadyClosed           = errors.New("provider already closed")
 )
 
 type Provider interface {
 	KeyStores() ([]KeyStore, []error)
 	Open() error
 	Close() error
+	IsOpen() bool
 }
 
 type DynamicProvider interface {
