@@ -2,7 +2,12 @@ package keystores
 
 import (
 	"crypto"
+	"errors"
 	"io"
+)
+
+var (
+	ErrOperationNotSupportedByKeyPair = errors.New("operation not supported by key pair")
 )
 
 type KeyPairId string

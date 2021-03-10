@@ -1,7 +1,7 @@
-package keystores
+package pkcs11ks
 
 import (
-	"github.com/miekg/pkcs11"
+	p11api "github.com/miekg/pkcs11"
 	"io/ioutil"
 	"os"
 	"path"
@@ -36,6 +36,7 @@ slots.removable = false`
 	}
 
 	wd, _ := os.Getwd()
+	wd = filepath.Dir(wd)
 	err = copyDir(filepath.Join(wd, "test_softhsm2"), tmpDir)
 
 }
@@ -60,7 +61,7 @@ func copyDir(source, destination string) error {
 }
 
 func TestSoftHSM(t *testing.T) {
-	p := pkcs11.New(softhsm2Lib)
+	p := p11api.New(softhsm2Lib)
 	err := p.Initialize()
 	if err != nil {
 		panic(err)
@@ -75,23 +76,30 @@ func TestSoftHSM(t *testing.T) {
 	}()
 }
 
-func TestPksc11KeyStore(t *testing.T) {
-	ks, err := OpenPkcs11KeyStore("/usr/local/lib/softhsm/libsofthsm2.so", "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	algs := ks.SupportedPrivateKeyAlgorithms()
-	t.Logf("%+v", algs)
-}
-
 func TestListPksc11KeyStores(t *testing.T) {
 	initSoftHSM2TestEnv(t)
-	ksList, err := ListPkcs11KeyStores(softhsm2Lib)
+	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	err := p.Open()
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		err := p.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	ksList, errs := p.KeyStores()
+	if errs != nil {
+		for _, err = range errs {
+			t.Log(err)
+		}
+		t.Fatal()
+	}
+
 	for i, ks := range ksList {
-		t.Logf("%d. %s, %s", i, ks.tokenInfo.Label, ks.tokenInfo.SerialNumber)
+		t.Logf("%d. %s : %s", i, ks.Id(), ks.Name())
 	}
 
 }

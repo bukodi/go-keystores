@@ -1,4 +1,4 @@
-package keystores
+package inmemoryks
 
 import (
 	"crypto"
@@ -9,13 +9,25 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/asn1"
-	"github.com/pkg/errors"
+	"fmt"
+	"github.com/bukodi/go-keystores"
 	"io"
 	"math/big"
 )
 
 type InMemoryKeyStore struct {
 	keyPairs []*InMemoryKeyPair
+}
+
+// Check whether implements the keystores.KeyStore interface
+var _ keystores.KeyStore = &InMemoryKeyStore{}
+
+func (imks *InMemoryKeyStore) Id() string {
+	panic("implement me")
+}
+
+func (imks *InMemoryKeyStore) Name() string {
+	panic("implement me")
 }
 
 func (imks *InMemoryKeyStore) Open() error {
@@ -26,49 +38,49 @@ func (imks *InMemoryKeyStore) Close() error {
 	panic("implement me")
 }
 
-func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []KeyAlgorithm {
-	algs := []KeyAlgorithm{KeyAlgRSA2048, KeyAlgECP256}
+func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
+	algs := []keystores.KeyAlgorithm{keystores.KeyAlgRSA2048, keystores.KeyAlgECP256}
 	return algs
 }
 
-func (imks *InMemoryKeyStore) KeyPairs() []KeyPair {
+func (imks *InMemoryKeyStore) KeyPairs() []keystores.KeyPair {
 	if imks.keyPairs == nil {
-		return make([]KeyPair, 0)
+		return make([]keystores.KeyPair, 0)
 	}
-	ret := make([]KeyPair, len(imks.keyPairs))
+	ret := make([]keystores.KeyPair, len(imks.keyPairs))
 	for i, kp := range imks.keyPairs {
 		ret[i] = kp
 	}
 	return ret
 }
 
-func (imks *InMemoryKeyStore) CreateKeyPair(keyAlgorithm KeyAlgorithm, opts interface{}) (KeyPair, error) {
+func (imks *InMemoryKeyStore) CreateKeyPair(keyAlgorithm keystores.KeyAlgorithm, opts interface{}) (keystores.KeyPair, error) {
 
 	imkp := InMemoryKeyPair{
 		keySore:     imks,
 		keyAlorithm: keyAlgorithm,
 	}
 	reader := rand.Reader
-	if KeyAlgRSA2048.oid.Equal(keyAlgorithm.oid) {
+	if keystores.KeyAlgRSA2048.Oid.Equal(keyAlgorithm.Oid) {
 		var err error
-		imkp.privKey, err = rsa.GenerateKey(reader, keyAlgorithm.keyLength)
+		imkp.privKey, err = rsa.GenerateKey(reader, keyAlgorithm.KeyLength)
 		if err != nil {
-			return nil, errors.WithStack(err)
+			return nil, keystores.ErrorHandler(err)
 		}
-	} else if KeyAlgECP256.Equal(keyAlgorithm) {
+	} else if keystores.KeyAlgECP256.Equal(keyAlgorithm) {
 		var err error
 		imkp.privKey, err = ecdsa.GenerateKey(elliptic.P256(), reader)
 		if err != nil {
-			return nil, errors.WithStack(err)
+			return nil, keystores.ErrorHandler(err)
 		}
-	} else if KeyAlgEd25519.Equal(keyAlgorithm) {
+	} else if keystores.KeyAlgEd25519.Equal(keyAlgorithm) {
 		var err error
 		_, imkp.privKey, err = ed25519.GenerateKey(reader)
 		if err != nil {
-			return nil, errors.WithStack(err)
+			return nil, keystores.ErrorHandler(err)
 		}
 	} else {
-		return nil, errors.WithStack(errors.Errorf("Unsupported algorithm: %s", keyAlgorithm.name))
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm: %s", keyAlgorithm))
 	}
 
 	if imks.keyPairs == nil {
@@ -80,10 +92,10 @@ func (imks *InMemoryKeyStore) CreateKeyPair(keyAlgorithm KeyAlgorithm, opts inte
 	return &imkp, nil
 }
 
-func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (KeyPair, error) {
+func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (keystores.KeyPair, error) {
 	key, err := x509.ParsePKCS8PrivateKey(der)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, keystores.ErrorHandler(err)
 	}
 
 	imkp := InMemoryKeyPair{
@@ -96,7 +108,7 @@ func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (KeyPair, error) {
 	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
 		imkp.privKey = edKey
 	} else {
-		return nil, errors.WithStack(errors.Errorf("Unsupported algorithm"))
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
 	}
 
 	if imks.keyPairs == nil {
@@ -115,24 +127,24 @@ func CreateInMemoryKeyStore() *InMemoryKeyStore {
 type InMemoryKeyPair struct {
 	privKey     crypto.PrivateKey
 	keySore     *InMemoryKeyStore
-	id          KeyPairId
-	keyAlorithm KeyAlgorithm
+	id          keystores.KeyPairId
+	keyAlorithm keystores.KeyAlgorithm
 	label       string
 }
 
-func (i InMemoryKeyPair) Id() KeyPairId {
+func (i *InMemoryKeyPair) Id() keystores.KeyPairId {
 	return i.id
 }
 
-func (i InMemoryKeyPair) Algorithm() KeyAlgorithm {
+func (i *InMemoryKeyPair) Algorithm() keystores.KeyAlgorithm {
 	return i.keyAlorithm
 }
 
-func (i InMemoryKeyPair) KeyStore() KeyStore {
+func (i *InMemoryKeyPair) KeyStore() keystores.KeyStore {
 	return i.keySore
 }
 
-func (i InMemoryKeyPair) Public() crypto.PublicKey {
+func (i *InMemoryKeyPair) Public() crypto.PublicKey {
 	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
 		return rsaKey.Public()
 	} else if ecKey, ok := i.privKey.(*ecdsa.PrivateKey); ok {
@@ -140,11 +152,11 @@ func (i InMemoryKeyPair) Public() crypto.PublicKey {
 	} else if edKey, ok := i.privKey.(ed25519.PrivateKey); ok {
 		return edKey.Public()
 	} else {
-		panic(errors.WithStack(errors.Errorf("Unsupported algorithm")))
+		panic(keystores.ErrorHandler(fmt.Errorf("unsupported algorithm")))
 	}
 }
 
-func (i InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+func (i *InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
 	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
 		signature, err = rsaKey.Sign(rand, digest, opts)
 	} else if ecKey, ok := i.privKey.(*ecdsa.PrivateKey); ok {
@@ -152,44 +164,44 @@ func (i InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerO
 	} else if edKey, ok := i.privKey.(ed25519.PrivateKey); ok {
 		signature, err = edKey.Sign(rand, digest, crypto.Hash(0))
 	} else {
-		signature, err = nil, errors.WithStack(errors.Errorf("Unsupported key algorithm"))
+		signature, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	}
 	if err != nil {
-		err = errors.WithStack(err)
+		err = keystores.ErrorHandler(err)
 	}
 	return signature, err
 }
 
-func (i InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
+func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
 	if rsaKey, ok := i.privKey.(rsa.PrivateKey); ok {
 		return rsaKey.Decrypt(rand, msg, opts)
 	} else if _, ok := i.privKey.(ecdsa.PrivateKey); ok {
 		// TODO: https://asecuritysite.com/encryption/goecdh
-		panic(errors.WithStack(errors.Errorf("Not implemented operation")))
+		panic(keystores.ErrorHandler(fmt.Errorf("not implemented operation")))
 	} else if _, ok := i.privKey.(ed25519.PrivateKey); ok {
-		panic(errors.WithStack(errors.Errorf("Unsupported operation")))
+		panic(keystores.ErrorHandler(fmt.Errorf("unsupported operation")))
 	} else {
-		panic(errors.WithStack(errors.Errorf("Unsupported algorithm")))
+		panic(keystores.ErrorHandler(fmt.Errorf("unsupported algorithm")))
 	}
 }
 
-func (i InMemoryKeyPair) ExportPrivate() (der []byte, err error) {
+func (i *InMemoryKeyPair) ExportPrivate() (der []byte, err error) {
 	return x509.MarshalPKCS8PrivateKey(i.privKey)
 }
 
-func (i InMemoryKeyPair) ExportPublic() (der []byte, err error) {
+func (i *InMemoryKeyPair) ExportPublic() (der []byte, err error) {
 	return x509.MarshalPKIXPublicKey(i.Public())
 }
 
-func (i InMemoryKeyPair) Destroy() {
+func (i *InMemoryKeyPair) Destroy() {
 	panic("implement me")
 }
 
-func (i InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {
+func (i *InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {
 	pubKey := i.Public()
 	if rsaKey, ok := pubKey.(*rsa.PublicKey); ok {
 		err = rsa.VerifyPKCS1v15(rsaKey, opts.HashFunc(), digest, signature)
-		return errors.WithStack(err)
+		return keystores.ErrorHandler(err)
 	} else if ecKey, ok := pubKey.(*ecdsa.PublicKey); ok {
 		type ECDSASignature struct {
 			R, S *big.Int
@@ -199,7 +211,7 @@ func (i InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.Sig
 		sig := &ECDSASignature{}
 		_, err = asn1.Unmarshal(signature, sig)
 		if err != nil {
-			return err
+			return keystores.ErrorHandler(err)
 		}
 		// validate the signature!
 		valid := ecdsa.Verify(
@@ -209,16 +221,16 @@ func (i InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.Sig
 			sig.S,
 		)
 		if !valid {
-			return errors.WithStack(errors.New("Signature validation failed"))
+			return keystores.ErrorHandler(fmt.Errorf("Signature validation failed"))
 		}
 		return nil
 	} else if edKey, ok := pubKey.(ed25519.PublicKey); ok {
 		valid := ed25519.Verify(edKey, digest, signature)
 		if !valid {
-			return errors.WithStack(errors.New("Signature validation failed"))
+			return keystores.ErrorHandler(fmt.Errorf("Signature validation failed"))
 		}
 		return nil
 	} else {
-		panic(errors.WithStack(errors.Errorf("Unsupported key algorithm")))
+		panic(keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm")))
 	}
 }

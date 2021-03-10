@@ -6,16 +6,19 @@ import (
 )
 
 var (
-	ErrOperationNotSupportedByProvider = errors.New("operation not supported by keystore provider")
-	ErrOperationNotSupportedByKeyStore = errors.New("operation not supported by keystore")
-	ErrOperationNotSupportedByKeyPair  = errors.New("operation not supported by keypair")
+	ErrOperationNotSupportedByKeyStore = errors.New("operation not supported by key store")
+	ErrKeyStoreAlreadyOpen             = errors.New("key store already open")
+	ErrKeyStoreAlreadyClosed           = errors.New("key store already closed")
 )
 
 type KeyStore interface {
+	// Unique identifier within the provider. The returned Id must be URL safe.
+	Id() string
+	Name() string
 	Open() error
 	Close() error
 	SupportedPrivateKeyAlgorithms() []KeyAlgorithm
-	KeyPairs() []KeyPair
+	KeyPairs() []KeyPair // TODO add return []error
 	CreateKeyPair(privateKeyAlgorithm KeyAlgorithm, opts interface{}) (kp KeyPair, err error)
 	ImportKeyPair(der []byte) (kp KeyPair, err error)
 }

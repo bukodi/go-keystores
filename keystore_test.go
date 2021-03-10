@@ -5,11 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"github.com/bukodi/go-keystores/inmemoryks"
 	"testing"
 )
 
 func TestSupportedAlgs(t *testing.T) {
-	ks := CreateInMemoryKeyStore()
+	ks := inmemoryks.CreateInMemoryKeyStore()
 	algs := ks.SupportedPrivateKeyAlgorithms()
 	t.Logf("%+v", algs)
 	kp, err := ks.CreateKeyPair(KeyAlgRSA2048, nil)
@@ -49,7 +50,7 @@ func TestEd25519SignVerify(t *testing.T) {
 }
 
 func testSignVerify(t *testing.T, algorithm KeyAlgorithm) {
-	ks := CreateInMemoryKeyStore()
+	ks := inmemoryks.CreateInMemoryKeyStore()
 	kp, err := ks.CreateKeyPair(algorithm, nil)
 	if err != nil {
 		t.Fatal(err)
