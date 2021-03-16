@@ -1,6 +1,7 @@
 package pkcs11ks
 
 import (
+	"crypto/x509"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
 	"io/ioutil"
@@ -120,7 +121,12 @@ func TestRsaGenSignVerify(t *testing.T) {
 	}
 	defer keystores.MustClosed(ks)
 
-	kp, err := ks.CreateKeyPair(keystores.KeyAlgRSA2048, nil)
+	kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{
+		Algorithm:  keystores.KeyAlgRSA2048,
+		Label:      "testKey",
+		KeyUsage:   x509.KeyUsageDigitalSignature | x509.KeyUsageDataEncipherment,
+		Exportable: false,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

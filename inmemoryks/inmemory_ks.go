@@ -60,33 +60,34 @@ func (imks *InMemoryKeyStore) KeyPairs() []keystores.KeyPair {
 	return ret
 }
 
-func (imks *InMemoryKeyStore) CreateKeyPair(keyAlgorithm keystores.KeyAlgorithm, opts interface{}) (keystores.KeyPair, error) {
+func (imks *InMemoryKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
 
 	imkp := InMemoryKeyPair{
 		keySore:     imks,
-		keyAlorithm: keyAlgorithm,
+		keyAlorithm: opts.Algorithm,
+		keyUsage:    opts.KeyUsage,
 	}
 	reader := rand.Reader
-	if keystores.KeyAlgRSA2048.Oid.Equal(keyAlgorithm.Oid) {
+	if keystores.KeyAlgRSA2048.Oid.Equal(opts.Algorithm.Oid) {
 		var err error
-		imkp.privKey, err = rsa.GenerateKey(reader, keyAlgorithm.KeyLength)
+		imkp.privKey, err = rsa.GenerateKey(reader, opts.Algorithm.KeyLength)
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
-	} else if keystores.KeyAlgECP256.Equal(keyAlgorithm) {
+	} else if keystores.KeyAlgECP256.Equal(opts.Algorithm) {
 		var err error
 		imkp.privKey, err = ecdsa.GenerateKey(elliptic.P256(), reader)
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
-	} else if keystores.KeyAlgEd25519.Equal(keyAlgorithm) {
+	} else if keystores.KeyAlgEd25519.Equal(opts.Algorithm) {
 		var err error
 		_, imkp.privKey, err = ed25519.GenerateKey(reader)
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
 	} else {
-		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm: %s", keyAlgorithm))
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm: %s", opts.Algorithm))
 	}
 
 	if imks.keyPairs == nil {
@@ -136,6 +137,7 @@ type InMemoryKeyPair struct {
 	id          keystores.KeyPairId
 	keyAlorithm keystores.KeyAlgorithm
 	label       string
+	keyUsage    x509.KeyUsage
 }
 
 // Check whether implements the keystores.KeyPair interface
@@ -147,6 +149,10 @@ func (i *InMemoryKeyPair) Id() keystores.KeyPairId {
 
 func (i *InMemoryKeyPair) Label() string {
 	return i.label
+}
+
+func (i *InMemoryKeyPair) KeyUsage() x509.KeyUsage {
+	return i.keyUsage
 }
 
 func (i *InMemoryKeyPair) Algorithm() keystores.KeyAlgorithm {

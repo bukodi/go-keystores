@@ -18,6 +18,7 @@ type Pkcs11KeyPair struct {
 	id          keystores.KeyPairId
 	keyAlorithm keystores.KeyAlgorithm
 	label       string
+	keyUsage    x509.KeyUsage
 }
 
 // Check whether implements the keystores.KeyPair interface
@@ -30,7 +31,7 @@ func (kp *Pkcs11KeyPair) p11Ctx() (*p11api.Ctx, error) {
 
 func (kp *Pkcs11KeyPair) initFields() error {
 
-	template := []*p11api.Attribute{
+	pubTemplate := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, nil),
 		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, nil),
 		p11api.NewAttribute(p11api.CKA_MODULUS, nil),
@@ -42,12 +43,12 @@ func (kp *Pkcs11KeyPair) initFields() error {
 		return keystores.ErrorHandler(err, kp)
 	}
 
-	attrs, err := ctx.GetAttributeValue(kp.keySore.hSession, kp.hPubKey, template)
+	pubAttrs, err := ctx.GetAttributeValue(kp.keySore.hSession, kp.hPubKey, pubTemplate)
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
 	rsaPubKey := rsa.PublicKey{}
-	for _, a := range attrs {
+	for _, a := range pubAttrs {
 		switch a.Type {
 		case p11api.CKA_MODULUS:
 			rsaPubKey.N = big.NewInt(0)
@@ -62,6 +63,42 @@ func (kp *Pkcs11KeyPair) initFields() error {
 	}
 
 	kp.pubKey = &rsaPubKey
+	kp.id, err = keystores.GenerateKeyPairIdFromPubKey(rsaPubKey)
+	if err != nil {
+		return keystores.ErrorHandler(err, kp)
+	}
+
+	privTemplate := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_SIGN, nil),
+		p11api.NewAttribute(p11api.CKA_DECRYPT, nil),
+		p11api.NewAttribute(p11api.CKA_UNWRAP, nil),
+		p11api.NewAttribute(p11api.CKA_DERIVE, nil),
+	}
+	privAttrs, err := ctx.GetAttributeValue(kp.keySore.hSession, kp.hPrivKey, privTemplate)
+	if err != nil {
+		return keystores.ErrorHandler(err, kp)
+	}
+	for _, a := range privAttrs {
+		switch a.Type {
+		case p11api.CKA_SIGN:
+			if a.Value[0] != 0 {
+				kp.keyUsage |= x509.KeyUsageDigitalSignature | x509.KeyUsageCRLSign | x509.KeyUsageCertSign
+			}
+		case p11api.CKA_DECRYPT:
+			if a.Value[0] != 0 {
+				kp.keyUsage |= x509.KeyUsageDataEncipherment
+			}
+		case p11api.CKA_UNWRAP:
+			if a.Value[0] != 0 {
+				kp.keyUsage |= x509.KeyUsageKeyEncipherment
+			}
+		case p11api.CKA_DERIVE:
+			if a.Value[0] != 0 {
+				kp.keyUsage |= x509.KeyUsageKeyAgreement
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -71,6 +108,10 @@ func (kp *Pkcs11KeyPair) Id() keystores.KeyPairId {
 
 func (kp *Pkcs11KeyPair) Label() string {
 	return kp.label
+}
+
+func (kp *Pkcs11KeyPair) KeyUsage() x509.KeyUsage {
+	return kp.keyUsage
 }
 
 func (kp *Pkcs11KeyPair) Algorithm() keystores.KeyAlgorithm {
