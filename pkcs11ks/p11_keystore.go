@@ -71,8 +71,26 @@ func (ks *Pkcs11KeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorit
 	return algs
 }
 
-func (ks *Pkcs11KeyStore) KeyPairs() []keystores.KeyPair {
-	panic("implement me")
+func (ks *Pkcs11KeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs []error) {
+	template := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
+	}
+
+	if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, template); err != nil {
+		return nil, []error{err}
+	}
+	defer func() {
+		err := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
+		if err != nil {
+			if errs == nil {
+				errs = []error{}
+			}
+			errs = append(errs, err)
+		}
+	}()
+
+	//panic("implement me")
+	return []keystores.KeyPair{}, nil
 }
 
 func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
@@ -86,7 +104,7 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		p11api.NewAttribute(p11api.CKA_ENCRYPT, opts.KeyUsage&x509.KeyUsageDataEncipherment != 0),
 		p11api.NewAttribute(p11api.CKA_WRAP, opts.KeyUsage&x509.KeyUsageKeyEncipherment != 0),
 		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, 2048),
+		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.KeyLength),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
 	}
 	privateKeyTemplate := []*p11api.Attribute{
@@ -100,10 +118,10 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, opts.Exportable),
 	}
 
-	mech := p11api.NewMechanism(p11api.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)
+	mechs := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
 
 	pbk, pvk, err := ks.provider.pkcs11Ctx.GenerateKeyPair(ks.hSession,
-		[]*p11api.Mechanism{mech},
+		mechs,
 		publicKeyTemplate, privateKeyTemplate)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)

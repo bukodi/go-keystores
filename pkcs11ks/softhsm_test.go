@@ -121,6 +121,7 @@ func TestRsaGenSignVerify(t *testing.T) {
 	}
 	defer keystores.MustClosed(ks)
 
+	dumpKeys(ks, t)
 	kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{
 		Algorithm:  keystores.KeyAlgRSA2048,
 		Label:      "testKey",
@@ -130,8 +131,27 @@ func TestRsaGenSignVerify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		err = kp.Destroy()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
 
-	t.Logf("Label: %s, PubKey: %v", kp.Label(), kp.Public())
-	_ = kp.Public()
+	dumpKeys(ks, t)
 
+}
+
+func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
+	kps, errs := ks.KeyPairs()
+	if errs != nil {
+		t.Fatal(errs)
+	}
+	if len(kps) == 0 {
+		t.Logf("No key pairs.")
+	} else {
+		for i, kp := range kps {
+			t.Logf("%d.: Label: %s, Id: %s", i, kp.Label(), kp.Id())
+		}
+	}
 }

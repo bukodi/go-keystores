@@ -24,9 +24,9 @@ type Pkcs11KeyPair struct {
 // Check whether implements the keystores.KeyPair interface
 var _ keystores.KeyPair = &Pkcs11KeyPair{}
 
-func (kp *Pkcs11KeyPair) p11Ctx() (*p11api.Ctx, error) {
+func (kp *Pkcs11KeyPair) p11CtxWithSess() (*p11api.Ctx, p11api.SessionHandle, error) {
 	// TODO: ensure open
-	return kp.keySore.provider.pkcs11Ctx, nil
+	return kp.keySore.provider.pkcs11Ctx, kp.keySore.hSession, nil
 }
 
 func (kp *Pkcs11KeyPair) initFields() error {
@@ -38,12 +38,12 @@ func (kp *Pkcs11KeyPair) initFields() error {
 		p11api.NewAttribute(p11api.CKA_LABEL, nil),
 	}
 
-	ctx, err := kp.p11Ctx()
+	ctx, sess, err := kp.p11CtxWithSess()
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
 
-	pubAttrs, err := ctx.GetAttributeValue(kp.keySore.hSession, kp.hPubKey, pubTemplate)
+	pubAttrs, err := ctx.GetAttributeValue(sess, kp.hPubKey, pubTemplate)
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
@@ -63,7 +63,7 @@ func (kp *Pkcs11KeyPair) initFields() error {
 	}
 
 	kp.pubKey = &rsaPubKey
-	kp.id, err = keystores.GenerateKeyPairIdFromPubKey(rsaPubKey)
+	kp.id, err = keystores.GenerateKeyPairIdFromPubKey(kp.pubKey)
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
@@ -142,8 +142,22 @@ func (kp *Pkcs11KeyPair) ExportPublic() (der []byte, err error) {
 	return x509.MarshalPKIXPublicKey(kp.Public())
 }
 
-func (kp *Pkcs11KeyPair) Destroy() {
-	panic("implement me")
+func (kp *Pkcs11KeyPair) Destroy() error {
+	ctx, sess, err := kp.p11CtxWithSess()
+	if err != nil {
+		return keystores.ErrorHandler(err, kp)
+	}
+
+	err = ctx.DestroyObject(sess, kp.hPrivKey)
+	if err != nil {
+		return keystores.ErrorHandler(err, kp)
+	}
+
+	err = ctx.DestroyObject(sess, kp.hPubKey)
+	if err != nil {
+		return keystores.ErrorHandler(err, kp)
+	}
+	return nil
 }
 
 func (kp *Pkcs11KeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {

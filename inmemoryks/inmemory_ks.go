@@ -49,15 +49,15 @@ func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlg
 	return algs
 }
 
-func (imks *InMemoryKeyStore) KeyPairs() []keystores.KeyPair {
+func (imks *InMemoryKeyStore) KeyPairs() ([]keystores.KeyPair, []error) {
 	if imks.keyPairs == nil {
-		return make([]keystores.KeyPair, 0)
+		return make([]keystores.KeyPair, 0), nil
 	}
 	ret := make([]keystores.KeyPair, len(imks.keyPairs))
 	for i, kp := range imks.keyPairs {
 		ret[i] = kp
 	}
-	return ret
+	return ret, nil
 }
 
 func (imks *InMemoryKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
@@ -212,7 +212,7 @@ func (i *InMemoryKeyPair) ExportPublic() (der []byte, err error) {
 	return x509.MarshalPKIXPublicKey(i.Public())
 }
 
-func (i *InMemoryKeyPair) Destroy() {
+func (i *InMemoryKeyPair) Destroy() error {
 	panic("implement me")
 }
 

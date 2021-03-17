@@ -34,7 +34,7 @@ type KeyPair interface {
 	Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error)
 	ExportPrivate() (der []byte, err error)
 	ExportPublic() (der []byte, err error)
-	Destroy()
+	Destroy() error
 	Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error)
 }
 
