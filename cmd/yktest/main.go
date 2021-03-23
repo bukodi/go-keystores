@@ -1,4 +1,4 @@
-package yubiks
+package main
 
 import (
 	"crypto"
@@ -7,37 +7,43 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/asn1"
+	"fmt"
 	"github.com/go-piv/piv-go/piv"
+	"github.com/pkg/errors"
 	"math/big"
 	"strings"
-	"testing"
 )
 
-func TestYubikey(t *testing.T) {
+func main() {
 	// List all smartcards connected to the system.
 	cards, err := piv.Cards()
 	if err != nil {
-		t.Fatal(err) // ...
+		fmt.Printf("%+v", errors.WithStack(err)) // ...
+		return
 	}
 
 	// Find a YubiKey and open the reader.
 	var yk *piv.YubiKey
 	for _, card := range cards {
+		fmt.Printf("Cahck card: %s\n", card)
 		if strings.Contains(strings.ToLower(card), "yubikey") {
 			if yk, err = piv.Open(card); err != nil {
-				t.Fatal(err) // ...
+				fmt.Printf("%+v", errors.WithStack(err)) // ...
+				return
 			}
 			break
 		}
 	}
 	if yk == nil {
-		t.Fatal("Yubikey not found")
+		fmt.Printf("Yubikey not found\n") // ...
+		return
 	}
 
 	if serial, err := yk.Serial(); err != nil {
-		t.Fatalf("getting serial number: %v", err)
+		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
+		return
 	} else {
-		t.Logf("Yubikey serial: %v", serial)
+		fmt.Printf("Yubikey serial: %v\n", serial)
 	}
 
 	// Change Master password
@@ -51,9 +57,10 @@ func TestYubikey(t *testing.T) {
 		t.Fatalf("SetManagementKey failed: %v", err)
 	}*/
 	if md, err := yk.Metadata(piv.DefaultPIN); err != nil {
-		t.Fatalf("getting serial number: %v", err)
+		fmt.Printf("%+v", errors.WithStack(err))
+		return
 	} else {
-		t.Logf("Metadata: %#v", md)
+		fmt.Printf("Metadata: %#v\n", md)
 	}
 
 	// Generate a private key on the YubiKey.
@@ -64,65 +71,74 @@ func TestYubikey(t *testing.T) {
 	}
 	pubKey, err := yk.GenerateKey(piv.DefaultManagementKey, piv.SlotAuthentication, key)
 	if err != nil {
-		t.Fatal(err)
+		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
+		return
 	}
 
 	auth := piv.KeyAuth{PIN: piv.DefaultPIN}
 	privKey, err := yk.PrivateKey(piv.SlotAuthentication, pubKey, auth)
 	if err != nil {
-		t.Fatal(err)
+		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
+		return
 	}
-	t.Logf("Priv key: %#v", privKey)
+	fmt.Printf("Priv key: %#v\n", privKey)
 
 	// Use private key to sign or decrypt.
 	pub, ok := pubKey.(*ecdsa.PublicKey)
 	if !ok {
-		t.Fatalf("public key is not an ecdsa key")
+		fmt.Printf("public key is not an ecdsa key\n")
+		return
 	}
 	data := sha256.Sum256([]byte("hello"))
 	s, ok := privKey.(crypto.Signer)
 	if !ok {
-		t.Fatalf("expected private key to implement crypto.Signer")
+		fmt.Printf("expected private key to implement crypto.Signer\n")
+		return
 	}
 	out, err := s.Sign(rand.Reader, data[:], crypto.SHA256)
 	if err != nil {
-		t.Fatalf("signing failed: %v", err)
+		fmt.Printf("signing failed: %+v\n", errors.WithStack(err))
+		return
 	} else {
-		t.Logf(`Signature of "hello": %+v`, out)
+		fmt.Printf(`Signature of "hello": %+v\n`, out)
 	}
 	var sig struct {
 		R, S *big.Int
 	}
 	if _, err := asn1.Unmarshal(out, &sig); err != nil {
-		t.Fatalf("unmarshaling signature: %v", err)
+		fmt.Printf("unmarshaling signature: %v\n", errors.WithStack(err))
+		return
 	}
 	if !ecdsa.Verify(pub, data[:], sig.R, sig.S) {
-		t.Errorf("signature didn't match")
+		fmt.Printf("signature didn't match\n")
+		return
 	} else {
-		t.Logf("Signature verified.")
+		fmt.Printf("Signature verified.\n")
 	}
 
 	// Get the YubiKey's attestation certificate, which is signed by Yubico.
 	yubiKeyAttestationCert, err := yk.AttestationCertificate()
 	if err != nil {
-		t.Fatal(err)
+		fmt.Printf("%+v", errors.WithStack(err))
+		return
 	}
-	t.Logf("Attestation cert:")
-	dumpCert(yubiKeyAttestationCert, t)
+	fmt.Printf("Attestation cert:\n")
+	dumpCert(yubiKeyAttestationCert)
 	//os.WriteFile("/tmp/yubiKeyAttestationCert.der", yubiKeyAttestationCert.Raw, 0666)
 
 	slotAttestationCertificate, err := yk.Attest(piv.SlotAuthentication)
 	if err != nil {
-		t.Fatal(err)
+		fmt.Printf("%+v", errors.WithStack(err))
+		return
 	}
-	t.Logf("Slot attestation cert: ")
-	dumpCert(slotAttestationCertificate, t)
+	fmt.Printf("Slot attestation cert: \n")
+	dumpCert(slotAttestationCertificate)
 	//os.WriteFile("/tmp/slotKeyAttestationCert.der", slotAttestationCertificate.Raw, 0666)
 
 }
 
-func dumpCert(cert *x509.Certificate, t *testing.T) {
-	t.Logf("Subject name: %s", cert.Subject.String())
-	t.Logf("Issuer name: %s", cert.Issuer.String())
-	t.Logf("Serial: %s", cert.SerialNumber.String())
+func dumpCert(cert *x509.Certificate) {
+	fmt.Printf("Subject name: %s\n", cert.Subject.String())
+	fmt.Printf("Issuer name: %s\n", cert.Issuer.String())
+	fmt.Printf("Serial: %s\n", cert.SerialNumber.String())
 }
