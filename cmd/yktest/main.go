@@ -26,7 +26,7 @@ func main() {
 	var yk *piv.YubiKey
 	for _, card := range cards {
 		fmt.Printf("Cahck card: %s\n", card)
-		if strings.Contains(strings.ToLower(card), "yubikey") {
+		if strings.Contains(strings.ToLower(card), "vmware") || strings.Contains(strings.ToLower(card), "yubikey") {
 			if yk, err = piv.Open(card); err != nil {
 				fmt.Printf("%+v", errors.WithStack(err)) // ...
 				return
@@ -81,7 +81,7 @@ func main() {
 		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
 		return
 	}
-	fmt.Printf("Priv key: %#v\n", privKey)
+	fmt.Printf("Priv key created:\n %#v\n", privKey)
 
 	// Use private key to sign or decrypt.
 	pub, ok := pubKey.(*ecdsa.PublicKey)
