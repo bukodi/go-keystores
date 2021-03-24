@@ -100,7 +100,7 @@ func main() {
 		fmt.Printf("signing failed: %+v\n", errors.WithStack(err))
 		return
 	} else {
-		fmt.Printf(`Signature of "hello": %+v\n`, out)
+		fmt.Printf(`Signature of "hello": %+v`+"\n", out)
 	}
 	var sig struct {
 		R, S *big.Int
