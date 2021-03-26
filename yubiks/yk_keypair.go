@@ -11,13 +11,13 @@ import (
 var _ keystores.KeyPair = &YkKeyPair{}
 
 type YkKeyPair struct {
-	keySore     *YkKeyStore
-	slot        int
-	pubKey      crypto.PublicKey
-	id          keystores.KeyPairId
-	keyAlorithm keystores.KeyAlgorithm
-	label       string
-	keyUsage    x509.KeyUsage
+	keySore      *YkKeyStore
+	slot         int
+	pubKey       crypto.PublicKey
+	id           keystores.KeyPairId
+	keyAlgorithm keystores.KeyAlgorithm
+	label        string
+	keyUsage     x509.KeyUsage
 }
 
 func (kp YkKeyPair) Id() keystores.KeyPairId {
