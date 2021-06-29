@@ -32,7 +32,7 @@ func SignVerifyTest(t *testing.T, kp keystores.KeyPair) error {
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	} else {
-		t.Logf("Signature is valid")
+		t.Logf("Sign and verify with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 	}
 	return nil
 }

@@ -4,7 +4,9 @@ import (
 	"crypto/x509"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
+	"github.com/rainycape/dl"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -12,7 +14,11 @@ import (
 	"testing"
 )
 
-var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+//var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
+
+//var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
+//var softhsm2Lib = "libsofthsm2.so"
 
 func initSoftHSM2TestEnv(t *testing.T) {
 	lib := os.Getenv("SOFTHSM2_LIB")
@@ -60,6 +66,14 @@ func copyDir(source, destination string) error {
 		}
 	})
 	return err
+}
+
+func TestDloadLib(t *testing.T) {
+	lib, err := dl.Open(softhsm2Lib, 0)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer lib.Close()
 }
 
 func TestSoftHSM(t *testing.T) {
