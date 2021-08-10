@@ -1,6 +1,7 @@
 package keystores
 
 import (
+	"context"
 	"crypto"
 	"crypto/sha256"
 	"crypto/x509"
@@ -35,6 +36,20 @@ type KeyPair interface {
 	ExportPrivate() (privKey crypto.PrivateKey, err error)
 	Destroy() error
 	Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error)
+}
+
+type AsyncKeyPair interface {
+	Id(ctx context.Context) <-chan KeyPairId
+	Label(ctx context.Context) <-chan string
+	Algorithm(ctx context.Context) <-chan KeyAlgorithm
+	KeyUsage(ctx context.Context) <-chan x509.KeyUsage
+	KeyStore(ctx context.Context) <-chan AsyncKeyStore
+	Public(ctx context.Context) <-chan crypto.PublicKey
+	Sign(ctx context.Context, rand io.Reader, digest []byte, opts crypto.SignerOpts) (signatureCh <-chan []byte, errCh <-chan error)
+	Decrypt(ctx context.Context, rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintextCh <-chan []byte, errCh <-chan error)
+	ExportPrivate(ctx context.Context) (privKeyCh <-chan crypto.PrivateKey, errCh <-chan error)
+	Destroy(ctx context.Context) <-chan error
+	Verify(ctx context.Context, signature []byte, digest []byte, opts crypto.SignerOpts) <-chan error
 }
 
 func GenerateKeyPairIdFromPubKey(pubKey crypto.PublicKey) (KeyPairId, error) {

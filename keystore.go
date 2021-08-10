@@ -23,5 +23,13 @@ type KeyStore interface {
 }
 
 type AsyncKeyStore interface {
-	AsyncCreateKeyPair(ctx context.Context, privateKeyAlgorithm KeyAlgorithm, opts interface{}) (kp KeyPair, err error)
+	Id(ctx context.Context) <-chan string
+	Name(ctx context.Context) <-chan string
+	Open(ctx context.Context) <-chan error
+	Close(ctx context.Context) <-chan error
+	IsOpen(ctx context.Context) <-chan bool
+	SupportedPrivateKeyAlgorithms(ctx context.Context) <-chan KeyAlgorithm
+	KeyPairs(ctx context.Context) (<-chan AsyncKeyPair, <-chan error)
+	CreateKeyPair(ctx context.Context, opts GenKeyPairOpts) (<-chan AsyncKeyPair, <-chan error)
+	ImportKeyPair(ctx context.Context, der []byte) (<-chan AsyncKeyPair, <-chan error)
 }
