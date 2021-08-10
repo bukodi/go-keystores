@@ -11,6 +11,7 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"github.com/bukodi/go-keystores"
+	"github.com/pkg/errors"
 	"io"
 	"math/big"
 	"unsafe"
@@ -204,16 +205,18 @@ func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.Decryp
 	}
 }
 
-func (i *InMemoryKeyPair) ExportPrivate() (der []byte, err error) {
-	return x509.MarshalPKCS8PrivateKey(i.privKey)
-}
-
-func (i *InMemoryKeyPair) ExportPublic() (der []byte, err error) {
-	return x509.MarshalPKIXPublicKey(i.Public())
+func (i *InMemoryKeyPair) ExportPrivate() (privKey crypto.PrivateKey, err error) {
+	return i.privKey, nil
 }
 
 func (i *InMemoryKeyPair) Destroy() error {
-	panic("implement me")
+	for idx, kp := range i.keySore.keyPairs {
+		if i.id == kp.id {
+			i.keySore.keyPairs = append(i.keySore.keyPairs[:idx], i.keySore.keyPairs[idx+1:]...)
+			return nil
+		}
+	}
+	return keystores.ErrorHandler(errors.Errorf("key not found"))
 }
 
 func (i *InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {

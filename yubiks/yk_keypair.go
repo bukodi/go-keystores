@@ -52,11 +52,7 @@ func (kp YkKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpt
 	panic("implement me")
 }
 
-func (kp YkKeyPair) ExportPrivate() (der []byte, err error) {
-	panic("implement me")
-}
-
-func (kp YkKeyPair) ExportPublic() (der []byte, err error) {
+func (kp YkKeyPair) ExportPrivate() (privKey crypto.PrivateKey, err error) {
 	panic("implement me")
 }
 

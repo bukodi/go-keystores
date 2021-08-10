@@ -14,10 +14,11 @@ import (
 	"testing"
 )
 
-//var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+
 //var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
 
-var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
+//var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
 
 //var softhsm2Lib = "libsofthsm2.so"
 

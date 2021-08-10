@@ -31,7 +31,7 @@ func TestYubikey(t *testing.T) {
 		}
 	}
 	if yk == nil {
-		t.Fatal("Yubikey not found")
+		t.Skipf("Yubikey not found")
 	}
 
 	if serial, err := yk.Serial(); err != nil {

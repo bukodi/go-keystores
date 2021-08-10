@@ -134,12 +134,8 @@ func (kp *Pkcs11KeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.Decrypt
 	panic("implement me")
 }
 
-func (kp *Pkcs11KeyPair) ExportPrivate() (der []byte, err error) {
+func (kp *Pkcs11KeyPair) ExportPrivate() (privKey crypto.PrivateKey, err error) {
 	panic("implement me")
-}
-
-func (kp *Pkcs11KeyPair) ExportPublic() (der []byte, err error) {
-	return x509.MarshalPKIXPublicKey(kp.Public())
 }
 
 func (kp *Pkcs11KeyPair) Destroy() error {
