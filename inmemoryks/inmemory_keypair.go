@@ -4,18 +4,22 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/asn1"
 	"fmt"
 	"github.com/bukodi/go-keystores"
+	"github.com/bukodi/go-keystores/utils"
 	"io"
 	"math/big"
 )
 
 type InMemoryKeyPair struct {
+	// TODO: Use https://github.com/awnumar/memguard
 	privKey     crypto.PrivateKey
-	keySore     *InMemoryKeyStore
+	pubKey      crypto.PublicKey
+	keyStore    *InMemoryKeyStore
 	id          keystores.KeyPairId
 	keyAlorithm keystores.KeyAlgorithm
 	label       string
@@ -24,6 +28,73 @@ type InMemoryKeyPair struct {
 
 // Check whether implements the keystores.KeyPair interface
 var _ keystores.KeyPair = &InMemoryKeyPair{}
+
+func parsePKCS8PrivateKey(der []byte) (*InMemoryKeyPair, error) {
+	key, err := x509.ParsePKCS8PrivateKey(der)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var imkp InMemoryKeyPair
+	if rsaKey, ok := key.(rsa.PrivateKey); ok {
+		imkp.privKey = rsaKey
+		imkp.pubKey = rsaKey.Public()
+	} else if ecKey, ok := key.(ecdsa.PrivateKey); ok {
+		imkp.privKey = ecKey
+		imkp.pubKey = ecKey.Public()
+	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
+		imkp.privKey = edKey
+		imkp.pubKey = edKey.Public()
+	} else {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
+	}
+
+	if imkp.id, err = utils.IdFromPublicKey(imkp.pubKey); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	if imkp.keyAlorithm, err = utils.AlgorithmFromPublicKey(imkp.pubKey); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	return &imkp, nil
+}
+
+func generateKeyPair(opts keystores.GenKeyPairOpts) (*InMemoryKeyPair, error) {
+	imkp := InMemoryKeyPair{
+		keyAlorithm: opts.Algorithm,
+		keyUsage:    opts.KeyUsage,
+	}
+	reader := rand.Reader
+	if keystores.KeyAlgRSA2048.Equal(opts.Algorithm) {
+		rsaKey, err := rsa.GenerateKey(reader, opts.Algorithm.KeyLength)
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
+		imkp.privKey = rsaKey
+		imkp.pubKey = rsaKey.Public()
+	} else if opts.Algorithm.CurveParams != nil {
+		ecKey, err := ecdsa.GenerateKey(opts.Algorithm.CurveParams, reader)
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
+		imkp.privKey = ecKey
+		imkp.pubKey = ecKey.Public()
+	} else if keystores.KeyAlgEd25519.Equal(opts.Algorithm) {
+		edPub, edPriv, err := ed25519.GenerateKey(reader)
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
+		imkp.privKey = edPriv
+		imkp.pubKey = edPub
+	} else {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm: %s", opts.Algorithm))
+	}
+	var err error
+	if imkp.id, err = utils.IdFromPublicKey(imkp.Public()); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	return &imkp, nil
+}
 
 func (i *InMemoryKeyPair) Id() keystores.KeyPairId {
 	return i.id
@@ -42,19 +113,11 @@ func (i *InMemoryKeyPair) Algorithm() keystores.KeyAlgorithm {
 }
 
 func (i *InMemoryKeyPair) KeyStore() keystores.KeyStore {
-	return i.keySore
+	return i.keyStore
 }
 
 func (i *InMemoryKeyPair) Public() crypto.PublicKey {
-	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
-		return rsaKey.Public()
-	} else if ecKey, ok := i.privKey.(*ecdsa.PrivateKey); ok {
-		return ecKey.Public()
-	} else if edKey, ok := i.privKey.(ed25519.PrivateKey); ok {
-		return edKey.Public()
-	} else {
-		panic(keystores.ErrorHandler(fmt.Errorf("unsupported algorithm")))
-	}
+	return i.pubKey
 }
 
 func (i *InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
@@ -95,7 +158,9 @@ func (i *InMemoryKeyPair) ExportPublic() (der []byte, err error) {
 }
 
 func (i *InMemoryKeyPair) Destroy() error {
-	panic("implement me")
+	i.privKey = nil
+	delete(i.keyStore.keyPairs, i.id)
+	return nil
 }
 
 func (i *InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {
@@ -132,6 +197,6 @@ func (i *InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.Si
 		}
 		return nil
 	} else {
-		panic(keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm")))
+		return keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	}
 }

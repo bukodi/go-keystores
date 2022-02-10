@@ -1,6 +1,6 @@
 module github.com/bukodi/go-keystores
 
-go 1.12
+go 1.17
 
 require (
 	github.com/go-piv/piv-go v1.7.0

@@ -1,20 +1,14 @@
 package inmemoryks
 
 import (
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/elliptic"
-	"crypto/rand"
-	"crypto/rsa"
-	"crypto/x509"
 	"fmt"
 	"github.com/bukodi/go-keystores"
+	"sort"
 	"unsafe"
 )
 
-// TODO: Use https://github.com/awnumar/memguard
 type InMemoryKeyStore struct {
-	keyPairs []*InMemoryKeyPair
+	keyPairs map[keystores.KeyPairId]*InMemoryKeyPair
 }
 
 // Check whether implements the keystores.KeyStore interface
@@ -50,80 +44,40 @@ func (imks *InMemoryKeyStore) KeyPairs() ([]keystores.KeyPair, []error) {
 	if imks.keyPairs == nil {
 		return make([]keystores.KeyPair, 0), nil
 	}
-	ret := make([]keystores.KeyPair, len(imks.keyPairs))
-	for i, kp := range imks.keyPairs {
-		ret[i] = kp
+	ret := make([]keystores.KeyPair, 0, len(imks.keyPairs))
+	for _, kp := range imks.keyPairs {
+		ret = append(ret, kp)
 	}
+	// Order lexicographically for stable response
+	sort.Slice(ret, func(i, j int) bool {
+		return ret[i].Id() < ret[j].Id()
+	})
 	return ret, nil
 }
 
 func (imks *InMemoryKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
-
-	imkp := InMemoryKeyPair{
-		keySore:     imks,
-		keyAlorithm: opts.Algorithm,
-		keyUsage:    opts.KeyUsage,
-	}
-	reader := rand.Reader
-	if keystores.KeyAlgRSA2048.Oid.Equal(opts.Algorithm.Oid) {
-		var err error
-		imkp.privKey, err = rsa.GenerateKey(reader, opts.Algorithm.KeyLength)
-		if err != nil {
-			return nil, keystores.ErrorHandler(err)
-		}
-	} else if keystores.KeyAlgECP256.Equal(opts.Algorithm) {
-		var err error
-		imkp.privKey, err = ecdsa.GenerateKey(elliptic.P256(), reader)
-		if err != nil {
-			return nil, keystores.ErrorHandler(err)
-		}
-	} else if keystores.KeyAlgEd25519.Equal(opts.Algorithm) {
-		var err error
-		_, imkp.privKey, err = ed25519.GenerateKey(reader)
-		if err != nil {
-			return nil, keystores.ErrorHandler(err)
-		}
-	} else {
-		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm: %s", opts.Algorithm))
-	}
-
-	if imks.keyPairs == nil {
-		imks.keyPairs = make([]*InMemoryKeyPair, 1)
-		imks.keyPairs[0] = &imkp
-	} else {
-		imks.keyPairs = append(imks.keyPairs, &imkp)
-	}
-	return &imkp, nil
-}
-
-func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (keystores.KeyPair, error) {
-	key, err := x509.ParsePKCS8PrivateKey(der)
+	imkp, err := generateKeyPair(opts)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
+	imkp.keyStore = imks
+	imks.keyPairs[imkp.id] = imkp
+	return imkp, nil
+}
 
-	imkp := InMemoryKeyPair{
-		keySore: imks,
+func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (keystores.KeyPair, error) {
+	imkp, err := parsePKCS8PrivateKey(der)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
 	}
-	if rsaKey, ok := key.(rsa.PrivateKey); ok {
-		imkp.privKey = rsaKey
-	} else if ecKey, ok := key.(ecdsa.PrivateKey); ok {
-		imkp.privKey = ecKey
-	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
-		imkp.privKey = edKey
-	} else {
-		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
-	}
-
-	if imks.keyPairs == nil {
-		imks.keyPairs = make([]*InMemoryKeyPair, 1)
-		imks.keyPairs[0] = &imkp
-	} else {
-		imks.keyPairs = append(imks.keyPairs, &imkp)
-	}
-	return &imkp, nil
+	imkp.keyStore = imks
+	imks.keyPairs[imkp.id] = imkp
+	return imkp, nil
 }
 
 func CreateInMemoryKeyStore() *InMemoryKeyStore {
-	return new(InMemoryKeyStore)
+	imKs := InMemoryKeyStore{
+		keyPairs: make(map[keystores.KeyPairId]*InMemoryKeyPair, 0),
+	}
+	return &imKs
 }
