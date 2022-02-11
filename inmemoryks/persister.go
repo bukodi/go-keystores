@@ -14,11 +14,17 @@ type Persister interface {
 	SaveKeyPair(imkp *InMemoryKeyPair) error
 }
 
+var _ Persister = &NopPersister{}
+
+type NopPersister struct{}
+
+func (n NopPersister) Load(imks *InMemoryKeyStore) error       { return nil }
+func (n NopPersister) SaveKeyPair(imkp *InMemoryKeyPair) error { return nil }
+
 var _ Persister = &Pkcs8DirPersister{}
 
 type Pkcs8DirPersister struct {
-	dir    string
-	loaded bool
+	dir string
 }
 
 func (p Pkcs8DirPersister) Load(imks *InMemoryKeyStore) error {
@@ -28,8 +34,6 @@ func (p Pkcs8DirPersister) Load(imks *InMemoryKeyStore) error {
 	}
 
 	re := regexp.MustCompile(`^([0-9a-z]*)-(.*)\.priv$`)
-	match := re.FindStringSubmatch("git commit -m '${abc}'")
-	fmt.Println(match[1])
 	for _, f := range files {
 		match := re.FindStringSubmatch(f.Name())
 		if len(match) != 3 {
@@ -44,7 +48,6 @@ func (p Pkcs8DirPersister) Load(imks *InMemoryKeyStore) error {
 			return keystores.ErrorHandler(err) // TODO use multiple errors
 		}
 	}
-	p.loaded = true
 	return nil
 }
 
@@ -59,4 +62,13 @@ func (p Pkcs8DirPersister) SaveKeyPair(imkp *InMemoryKeyPair) error {
 		return keystores.ErrorHandler(err)
 	}
 	return nil
+}
+
+func CreatePkcs8Dir(dir string) (*InMemoryKeyStore, error) {
+	p := Pkcs8DirPersister{
+		dir: dir,
+	}
+	imks := CreateInMemoryKeyStore()
+	imks.persister = &p
+	return imks, nil
 }

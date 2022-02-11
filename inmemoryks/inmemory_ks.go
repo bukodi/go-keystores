@@ -8,6 +8,7 @@ import (
 )
 
 type InMemoryKeyStore struct {
+	isLoaded  bool
 	persister Persister
 	keyPairs  map[keystores.KeyPairId]*InMemoryKeyPair
 }
@@ -25,21 +26,21 @@ func (imks *InMemoryKeyStore) Name() string {
 }
 
 func (imks *InMemoryKeyStore) Open() error {
-	if imks.persister != nil {
-		err := imks.persister.Load(imks)
-		if err != nil {
-			return keystores.ErrorHandler(err)
-		}
+	err := imks.persister.Load(imks)
+	if err != nil {
+		return keystores.ErrorHandler(err)
 	}
+	imks.isLoaded = true
 	return nil
 }
 
 func (imks *InMemoryKeyStore) Close() error {
-	return keystores.ErrorHandler(keystores.ErrOperationNotSupportedByKeyStore, imks)
+	imks.isLoaded = false
+	return nil
 }
 
 func (imks *InMemoryKeyStore) IsOpen() bool {
-	return true
+	return imks.isLoaded
 }
 
 func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
@@ -68,6 +69,10 @@ func (imks *InMemoryKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keys
 		return nil, keystores.ErrorHandler(err)
 	}
 	imkp.keyStore = imks
+	if err := imks.persister.SaveKeyPair(imkp); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
 	imks.keyPairs[imkp.id] = imkp
 	return imkp, nil
 }
@@ -78,13 +83,18 @@ func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (keystores.KeyPair, erro
 		return nil, keystores.ErrorHandler(err)
 	}
 	imkp.keyStore = imks
+	if err := imks.persister.SaveKeyPair(imkp); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
 	imks.keyPairs[imkp.id] = imkp
 	return imkp, nil
 }
 
 func CreateInMemoryKeyStore() *InMemoryKeyStore {
 	imKs := InMemoryKeyStore{
-		keyPairs: make(map[keystores.KeyPairId]*InMemoryKeyPair, 0),
+		keyPairs:  make(map[keystores.KeyPairId]*InMemoryKeyPair, 0),
+		persister: &NopPersister{},
 	}
 	return &imKs
 }
