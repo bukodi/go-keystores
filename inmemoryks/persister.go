@@ -17,7 +17,8 @@ type Persister interface {
 var _ Persister = &Pkcs8DirPersister{}
 
 type Pkcs8DirPersister struct {
-	dir string
+	dir    string
+	loaded bool
 }
 
 func (p Pkcs8DirPersister) Load(imks *InMemoryKeyStore) error {
@@ -43,6 +44,7 @@ func (p Pkcs8DirPersister) Load(imks *InMemoryKeyStore) error {
 			return keystores.ErrorHandler(err) // TODO use multiple errors
 		}
 	}
+	p.loaded = true
 	return nil
 }
 
