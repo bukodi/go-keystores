@@ -116,9 +116,9 @@ func TestKeyAlgorithm_Equal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ka := KeyAlgorithm{
-				Oid:       tt.fields.Oid,
-				KeyLength: tt.fields.KeyLength,
-				Name:      tt.fields.Name,
+				Oid:          tt.fields.Oid,
+				RSAKeyLength: tt.fields.KeyLength,
+				Name:         tt.fields.Name,
 			}
 			if got := ka.Equal(tt.args.other); got != tt.want {
 				t.Errorf("Equal() = %v, want %v", got, tt.want)
@@ -143,9 +143,9 @@ func TestKeyAlgorithm_String(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ka := KeyAlgorithm{
-				Oid:       tt.fields.Oid,
-				KeyLength: tt.fields.KeyLength,
-				Name:      tt.fields.Name,
+				Oid:          tt.fields.Oid,
+				RSAKeyLength: tt.fields.KeyLength,
+				Name:         tt.fields.Name,
 			}
 			if got := ka.String(); got != tt.want {
 				t.Errorf("String() = %v, want %v", got, tt.want)

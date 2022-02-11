@@ -104,7 +104,7 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		p11api.NewAttribute(p11api.CKA_ENCRYPT, opts.KeyUsage&x509.KeyUsageDataEncipherment != 0),
 		p11api.NewAttribute(p11api.CKA_WRAP, opts.KeyUsage&x509.KeyUsageKeyEncipherment != 0),
 		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.KeyLength),
+		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.RSAKeyLength),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
 	}
 	privateKeyTemplate := []*p11api.Attribute{

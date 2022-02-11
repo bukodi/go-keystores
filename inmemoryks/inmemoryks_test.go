@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/internal"
+	"regexp"
 	"testing"
 )
 
@@ -47,4 +48,11 @@ func TestKeys(t *testing.T) {
 	}
 
 	internal.KeyPairTests(t, ks, tests)
+}
+
+func TestParseFilename(t *testing.T) {
+	re := regexp.MustCompile(`^([0-9a-z]*)-(.*)\.priv$`)
+	match := re.FindStringSubmatch("789a7c4-cica.priv")
+	t.Logf("%s-%s.priv", match[1], match[2])
+
 }

@@ -65,14 +65,14 @@ func generateKeyPair(opts keystores.GenKeyPairOpts) (*InMemoryKeyPair, error) {
 	}
 	reader := rand.Reader
 	if keystores.KeyAlgRSA2048.Equal(opts.Algorithm) {
-		rsaKey, err := rsa.GenerateKey(reader, opts.Algorithm.KeyLength)
+		rsaKey, err := rsa.GenerateKey(reader, opts.Algorithm.RSAKeyLength)
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
 		imkp.privKey = rsaKey
 		imkp.pubKey = rsaKey.Public()
-	} else if opts.Algorithm.CurveParams != nil {
-		ecKey, err := ecdsa.GenerateKey(opts.Algorithm.CurveParams, reader)
+	} else if opts.Algorithm.ECCCurve != nil {
+		ecKey, err := ecdsa.GenerateKey(opts.Algorithm.ECCCurve, reader)
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
@@ -102,6 +102,17 @@ func (i *InMemoryKeyPair) Id() keystores.KeyPairId {
 
 func (i *InMemoryKeyPair) Label() string {
 	return i.label
+}
+
+func (i *InMemoryKeyPair) SetLabel(label string) error {
+	i.label = label
+	if i.keyStore.persister != nil {
+		err := i.keyStore.persister.SaveKeyPair(i)
+		if err != nil {
+			return keystores.ErrorHandler(err)
+		}
+	}
+	return nil
 }
 
 func (i *InMemoryKeyPair) KeyUsage() x509.KeyUsage {
@@ -143,6 +154,7 @@ func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.Decryp
 		// TODO: https://asecuritysite.com/encryption/goecdh
 		panic(keystores.ErrorHandler(fmt.Errorf("not implemented operation")))
 	} else if _, ok := i.privKey.(ed25519.PrivateKey); ok {
+		// TODO: rfc7748
 		panic(keystores.ErrorHandler(fmt.Errorf("unsupported operation")))
 	} else {
 		panic(keystores.ErrorHandler(fmt.Errorf("unsupported algorithm")))
@@ -199,4 +211,8 @@ func (i *InMemoryKeyPair) Verify(signature []byte, digest []byte, opts crypto.Si
 	} else {
 		return keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	}
+}
+
+func (i *InMemoryKeyPair) Attestation(nonce []byte) (att keystores.Attestation, err error) {
+	return nil, nil
 }

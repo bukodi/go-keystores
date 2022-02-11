@@ -8,7 +8,8 @@ import (
 )
 
 type InMemoryKeyStore struct {
-	keyPairs map[keystores.KeyPairId]*InMemoryKeyPair
+	persister Persister
+	keyPairs  map[keystores.KeyPairId]*InMemoryKeyPair
 }
 
 // Check whether implements the keystores.KeyStore interface
@@ -24,7 +25,13 @@ func (imks *InMemoryKeyStore) Name() string {
 }
 
 func (imks *InMemoryKeyStore) Open() error {
-	return keystores.ErrorHandler(keystores.ErrAlreadyOpen, imks)
+	if imks.persister != nil {
+		err := imks.persister.Load(imks)
+		if err != nil {
+			return keystores.ErrorHandler(err)
+		}
+	}
+	return nil
 }
 
 func (imks *InMemoryKeyStore) Close() error {

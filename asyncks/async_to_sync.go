@@ -13,6 +13,9 @@ func CreateSyncKeyStore(ctx context.Context, asyncKs keystores.AsyncKeyStore) ke
 	return &syncKs
 }
 
+// Check whether implements the keystores.KeyStore interface
+var _ keystores.KeyStore = &syncKs{}
+
 type syncKs struct {
 	ctx     context.Context
 	asyncKs keystores.AsyncKeyStore
@@ -66,6 +69,3 @@ func (s syncKs) CreateKeyPair(opts keystores.GenKeyPairOpts) (kp keystores.KeyPa
 func (s syncKs) ImportKeyPair(der []byte) (kp keystores.KeyPair, err error) {
 	panic("implement me")
 }
-
-// Check whether implements the keystores.KeyStore interface
-var _ keystores.KeyStore = &syncKs{}
