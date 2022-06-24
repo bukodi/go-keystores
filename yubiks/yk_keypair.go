@@ -63,3 +63,13 @@ func (kp YkKeyPair) Destroy() error {
 func (kp YkKeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {
 	panic("implement me")
 }
+
+func (kp YkKeyPair) SetLabel(label string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (kp YkKeyPair) Attestation(nonce []byte) (att keystores.Attestation, err error) {
+	//TODO implement me
+	panic("implement me")
+}

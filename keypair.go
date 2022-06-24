@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -16,12 +17,13 @@ var (
 
 type KeyPairId string
 
-type GenKeyPairOpts struct {
-	Algorithm  KeyAlgorithm
-	Label      string
-	KeyUsage   x509.KeyUsage
-	Exportable bool
-	Ephemeral  bool
+func IdFromPublicKey(pubKey crypto.PublicKey) (KeyPairId, error) {
+	bytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		return "", ErrorHandler(err)
+	}
+	sum := sha256.Sum256(bytes)
+	return KeyPairId(hex.EncodeToString(sum[:])), nil
 }
 
 type KeyPair interface {
@@ -54,6 +56,14 @@ type AsyncKeyPair interface {
 	Destroy(ctx context.Context) <-chan error
 	Verify(ctx context.Context, signature []byte, digest []byte, opts crypto.SignerOpts) <-chan error
 	Attestation(ctx context.Context, nonce []byte) (att <-chan Attestation, errCh <-chan error)
+}
+
+type GenKeyPairOpts struct {
+	Algorithm  KeyAlgorithm
+	Label      string
+	KeyUsage   x509.KeyUsage
+	Exportable bool
+	Ephemeral  bool
 }
 
 func GenerateKeyPairIdFromPubKey(pubKey crypto.PublicKey) (KeyPairId, error) {

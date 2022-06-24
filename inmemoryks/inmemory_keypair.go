@@ -10,7 +10,6 @@ import (
 	"encoding/asn1"
 	"fmt"
 	"github.com/bukodi/go-keystores"
-	"github.com/bukodi/go-keystores/utils"
 	"io"
 	"math/big"
 )
@@ -49,10 +48,10 @@ func parsePKCS8PrivateKey(der []byte) (*InMemoryKeyPair, error) {
 		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
 	}
 
-	if imkp.id, err = utils.IdFromPublicKey(imkp.pubKey); err != nil {
+	if imkp.id, err = keystores.IdFromPublicKey(imkp.pubKey); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if imkp.keyAlorithm, err = utils.AlgorithmFromPublicKey(imkp.pubKey); err != nil {
+	if imkp.keyAlorithm, err = keystores.AlgorithmFromPublicKey(imkp.pubKey); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 	return &imkp, nil
@@ -89,7 +88,7 @@ func generateKeyPair(opts keystores.GenKeyPairOpts) (*InMemoryKeyPair, error) {
 		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm: %s", opts.Algorithm))
 	}
 	var err error
-	if imkp.id, err = utils.IdFromPublicKey(imkp.Public()); err != nil {
+	if imkp.id, err = keystores.IdFromPublicKey(imkp.Public()); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 

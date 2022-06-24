@@ -21,6 +21,16 @@ type Pkcs11KeyPair struct {
 	keyUsage    x509.KeyUsage
 }
 
+func (kp *Pkcs11KeyPair) SetLabel(label string) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (kp *Pkcs11KeyPair) Attestation(nonce []byte) (att keystores.Attestation, err error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 // Check whether implements the keystores.KeyPair interface
 var _ keystores.KeyPair = &Pkcs11KeyPair{}
 
