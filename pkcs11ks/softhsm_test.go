@@ -82,7 +82,7 @@ func TestSoftHSM(t *testing.T) {
 	p := p11api.New(softhsm2Lib)
 	err := p.Initialize()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	defer p.Destroy()

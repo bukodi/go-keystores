@@ -1,0 +1,355 @@
+Token Information:
+                         label: TestTokenA                      
+                manufacturerID: SoftHSM project                 
+                         model: SoftHSM v2      
+                  serialNumber: f4613df7711306ef
+                         flags: CKF_RNG,CKF_LOGIN_REQUIRED,CKF_USER_PIN_INITIALIZED,CKF_RESTORE_KEY_NOT_NEEDED,CKF_TOKEN_INITIALIZED
+             ulMaxSessionCount: 0
+             ulMaxSessionCount: 0
+                   ulMaxPinLen: 255
+                   ulMinPinLen: 4
+           ulTotalPublicMemory: -1
+            ulFreePublicMemory: -1
+          ulTotalPrivateMemory: -1
+           ulFreePrivateMemory: -1
+               hardwareVersion: 002.005
+               firmwareVersion: 002.005
+                       utcTime: 2022070822085900
+Object 0
+                   Object size: -1
+                     CKA_CLASS: CKO_PUBLIC_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: FALSE
+                     CKA_LABEL: RSA1K_dec_102
+                   CKA_TRUSTED: FALSE
+                  CKA_KEY_TYPE: CKK_RSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+01 02 
+
+                   CKA_ENCRYPT: TRUE
+                      CKA_WRAP: TRUE
+                    CKA_VERIFY: TRUE
+            CKA_VERIFY_RECOVER: TRUE
+                    CKA_DERIVE: FALSE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+                   CKA_MODULUS: 
+ae 82 c2 b2 f5 c1 e7 d9 b6 95 30 58 bc ce d6 5f 
+bf a5 94 ee 1f e9 aa d8 4d 29 67 4a a5 8e a1 41 
+4f f2 d1 ae 18 a2 0a 2e 43 36 79 e6 6f 22 58 a2 
+7d d5 a1 33 e9 ad 97 a1 c3 d7 5d 35 80 a0 e8 8c 
+ee e5 51 1b 8d e4 8c 74 91 54 2b 55 31 ca 79 18 
+d1 2f 9a c4 b8 b1 f8 1e cc 55 13 20 79 db 55 75 
+47 55 1e 7d f4 f7 dc c4 1c 1d d0 c4 29 bb e2 81 
+f7 ca 4f e6 41 e9 7c fb 95 2f 18 96 ba 91 b4 65 
+
+              CKA_MODULUS_BITS: 1024
+           CKA_PUBLIC_EXPONENT: 
+01 00 01 
+
+                     CKA_LOCAL: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_RSA_PKCS_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+             CKA_WRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 1
+                   Object size: -1
+                     CKA_CLASS: CKO_PRIVATE_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: TRUE
+                     CKA_LABEL: ECP256_sign_201
+                  CKA_KEY_TYPE: CKK_ECDSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+02 01 
+
+                 CKA_SENSITIVE: TRUE
+                   CKA_DECRYPT: TRUE
+                    CKA_UNWRAP: TRUE
+                      CKA_SIGN: TRUE
+              CKA_SIGN_RECOVER: TRUE
+                    CKA_DERIVE: FALSE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+               CKA_EXTRACTABLE: FALSE
+                     CKA_LOCAL: TRUE
+         CKA_NEVER_EXTRACTABLE: TRUE
+          CKA_ALWAYS_SENSITIVE: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_ECDSA_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+              CKA_ECDSA_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+                 CKA_EC_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+       CKA_ALWAYS_AUTHENTICATE: FALSE
+         CKA_WRAP_WITH_TRUSTED: FALSE
+           CKA_UNWRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 2
+                   Object size: -1
+                     CKA_CLASS: CKO_PUBLIC_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: FALSE
+                     CKA_LABEL: ECP256_sign_201
+                   CKA_TRUSTED: FALSE
+                  CKA_KEY_TYPE: CKK_ECDSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+02 01 
+
+                   CKA_ENCRYPT: TRUE
+                      CKA_WRAP: TRUE
+                    CKA_VERIFY: TRUE
+            CKA_VERIFY_RECOVER: TRUE
+                    CKA_DERIVE: FALSE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+                     CKA_LOCAL: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_ECDSA_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+              CKA_ECDSA_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+                 CKA_EC_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+                  CKA_EC_POINT: 
+04 41 04 09 ae e7 49 8f c3 cd a0 e7 43 18 d8 c6 
+16 f0 b4 8e 8d f6 83 85 bc aa b6 ab 1c 6c 95 9b 
+fa af bc ac 87 a6 d5 a5 ad de 49 15 41 13 f9 1f 
+5b b5 81 db 46 63 e8 9f 59 18 4d 55 bb 84 ad ad 
+e8 52 82 
+
+             CKA_WRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 3
+                   Object size: -1
+                     CKA_CLASS: CKO_DATA
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: TRUE
+                     CKA_LABEL: PrivData2
+               CKA_APPLICATION: AppLabel2
+                     CKA_VALUE: 
+54 65 73 74 20 44 61 74 61 2e 0a 
+
+                 CKA_OBJECT_ID: 
+
+                CKA_MODIFIABLE: TRUE
+Object 4
+                   Object size: -1
+                     CKA_CLASS: CKO_PRIVATE_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: TRUE
+                     CKA_LABEL: RSA1K_dec_102
+                  CKA_KEY_TYPE: CKK_RSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+01 02 
+
+                 CKA_SENSITIVE: TRUE
+                   CKA_DECRYPT: TRUE
+                    CKA_UNWRAP: TRUE
+                      CKA_SIGN: TRUE
+              CKA_SIGN_RECOVER: TRUE
+                    CKA_DERIVE: FALSE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+                   CKA_MODULUS: 
+ae 82 c2 b2 f5 c1 e7 d9 b6 95 30 58 bc ce d6 5f 
+bf a5 94 ee 1f e9 aa d8 4d 29 67 4a a5 8e a1 41 
+4f f2 d1 ae 18 a2 0a 2e 43 36 79 e6 6f 22 58 a2 
+7d d5 a1 33 e9 ad 97 a1 c3 d7 5d 35 80 a0 e8 8c 
+ee e5 51 1b 8d e4 8c 74 91 54 2b 55 31 ca 79 18 
+d1 2f 9a c4 b8 b1 f8 1e cc 55 13 20 79 db 55 75 
+47 55 1e 7d f4 f7 dc c4 1c 1d d0 c4 29 bb e2 81 
+f7 ca 4f e6 41 e9 7c fb 95 2f 18 96 ba 91 b4 65 
+
+           CKA_PUBLIC_EXPONENT: 
+01 00 01 
+
+               CKA_EXTRACTABLE: FALSE
+                     CKA_LOCAL: TRUE
+         CKA_NEVER_EXTRACTABLE: TRUE
+          CKA_ALWAYS_SENSITIVE: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_RSA_PKCS_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+       CKA_ALWAYS_AUTHENTICATE: FALSE
+         CKA_WRAP_WITH_TRUSTED: FALSE
+           CKA_UNWRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 5
+                   Object size: -1
+                     CKA_CLASS: CKO_PUBLIC_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: FALSE
+                     CKA_LABEL: RSA1K_sign_101
+                   CKA_TRUSTED: FALSE
+                  CKA_KEY_TYPE: CKK_RSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+01 01 
+
+                   CKA_ENCRYPT: TRUE
+                      CKA_WRAP: TRUE
+                    CKA_VERIFY: TRUE
+            CKA_VERIFY_RECOVER: TRUE
+                    CKA_DERIVE: FALSE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+                   CKA_MODULUS: 
+cf a8 47 2d 84 18 a5 2f 5d 8d 95 da c6 bf 63 db 
+c2 28 ec d7 a9 70 9a c7 39 5e fb c6 ee 4d 23 21 
+88 e8 6d ac 57 0b cc b7 41 2a 97 4c 0b 61 39 0a 
+18 de 7d dc 58 cf 03 31 d4 19 4a 62 a3 53 e1 24 
+b9 da 7c e7 ff fd 4f 43 c8 e2 a0 9a b1 75 7e 60 
+eb 51 74 d9 f9 cc c0 bb 04 3c 67 95 f4 41 ba eb 
+4c d7 64 57 81 bb 8c bc 5f 57 fb c9 ef 62 7c 77 
+6d 86 b0 45 4b b9 d8 8d 4f 9f e2 11 f6 5b 8b c5 
+
+              CKA_MODULUS_BITS: 1024
+           CKA_PUBLIC_EXPONENT: 
+01 00 01 
+
+                     CKA_LOCAL: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_RSA_PKCS_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+             CKA_WRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 6
+                   Object size: -1
+                     CKA_CLASS: CKO_PUBLIC_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: FALSE
+                     CKA_LABEL: ECP256_dh_203
+                   CKA_TRUSTED: FALSE
+                  CKA_KEY_TYPE: CKK_ECDSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+02 03 
+
+                   CKA_ENCRYPT: TRUE
+                      CKA_WRAP: TRUE
+                    CKA_VERIFY: TRUE
+            CKA_VERIFY_RECOVER: TRUE
+                    CKA_DERIVE: TRUE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+                     CKA_LOCAL: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_ECDSA_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+              CKA_ECDSA_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+                 CKA_EC_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+                  CKA_EC_POINT: 
+04 41 04 60 84 b7 c7 54 cf 1e 41 ea 69 4e 2a 55 
+9b 52 ff b4 c3 ee 4b 0a 97 fc 6b 1b e5 b4 11 ec 
+c0 c7 88 64 15 c7 be 83 90 9f 6a 35 0a d5 25 e9 
+17 9e 4f d3 b0 27 b6 a7 cc 08 1f c3 0e 4f 71 5c 
+82 73 26 
+
+             CKA_WRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 7
+                   Object size: -1
+                     CKA_CLASS: CKO_DATA
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: FALSE
+                     CKA_LABEL: PubData1
+               CKA_APPLICATION: AppLabel1
+                     CKA_VALUE: 
+54 65 73 74 20 44 61 74 61 2e 0a 
+
+                 CKA_OBJECT_ID: 
+
+                CKA_MODIFIABLE: TRUE
+Object 8
+                   Object size: -1
+                     CKA_CLASS: CKO_PRIVATE_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: TRUE
+                     CKA_LABEL: ECP256_dh_203
+                  CKA_KEY_TYPE: CKK_ECDSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+02 03 
+
+                 CKA_SENSITIVE: TRUE
+                   CKA_DECRYPT: TRUE
+                    CKA_UNWRAP: TRUE
+                      CKA_SIGN: TRUE
+              CKA_SIGN_RECOVER: TRUE
+                    CKA_DERIVE: TRUE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+               CKA_EXTRACTABLE: FALSE
+                     CKA_LOCAL: TRUE
+         CKA_NEVER_EXTRACTABLE: TRUE
+          CKA_ALWAYS_SENSITIVE: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_ECDSA_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+              CKA_ECDSA_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+                 CKA_EC_PARAMS: 
+06 08 2a 86 48 ce 3d 03 01 07 
+
+       CKA_ALWAYS_AUTHENTICATE: FALSE
+         CKA_WRAP_WITH_TRUSTED: FALSE
+           CKA_UNWRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed
+Object 9
+                   Object size: -1
+                     CKA_CLASS: CKO_PRIVATE_KEY
+                     CKA_TOKEN: TRUE
+                   CKA_PRIVATE: TRUE
+                     CKA_LABEL: RSA1K_sign_101
+                  CKA_KEY_TYPE: CKK_RSA
+                   CKA_SUBJECT: ERROR
+
+                        CKA_ID: 
+01 01 
+
+                 CKA_SENSITIVE: TRUE
+                   CKA_DECRYPT: TRUE
+                    CKA_UNWRAP: TRUE
+                      CKA_SIGN: TRUE
+              CKA_SIGN_RECOVER: TRUE
+                    CKA_DERIVE: FALSE
+                CKA_START_DATE: 
+                  CKA_END_DATE: 
+                   CKA_MODULUS: 
+cf a8 47 2d 84 18 a5 2f 5d 8d 95 da c6 bf 63 db 
+c2 28 ec d7 a9 70 9a c7 39 5e fb c6 ee 4d 23 21 
+88 e8 6d ac 57 0b cc b7 41 2a 97 4c 0b 61 39 0a 
+18 de 7d dc 58 cf 03 31 d4 19 4a 62 a3 53 e1 24 
+b9 da 7c e7 ff fd 4f 43 c8 e2 a0 9a b1 75 7e 60 
+eb 51 74 d9 f9 cc c0 bb 04 3c 67 95 f4 41 ba eb 
+4c d7 64 57 81 bb 8c bc 5f 57 fb c9 ef 62 7c 77 
+6d 86 b0 45 4b b9 d8 8d 4f 9f e2 11 f6 5b 8b c5 
+
+           CKA_PUBLIC_EXPONENT: 
+01 00 01 
+
+               CKA_EXTRACTABLE: FALSE
+                     CKA_LOCAL: TRUE
+         CKA_NEVER_EXTRACTABLE: TRUE
+          CKA_ALWAYS_SENSITIVE: TRUE
+         CKA_KEY_GEN_MECHANISM: CKM_RSA_PKCS_KEY_PAIR_GEN
+                CKA_MODIFIABLE: TRUE
+       CKA_ALWAYS_AUTHENTICATE: FALSE
+         CKA_WRAP_WITH_TRUSTED: FALSE
+           CKA_UNWRAP_TEMPLATE: Exists but value not parsed
+        CKA_ALLOWED_MECHANISMS: Exists but value not parsed

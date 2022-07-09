@@ -17,7 +17,7 @@ type KeyStore interface {
 	Close() error
 	IsOpen() bool
 	SupportedPrivateKeyAlgorithms() []KeyAlgorithm
-	KeyPairs() ([]KeyPair, []error)
+	KeyPairs() ([]KeyPair, []error) // TODO: add (reload bool) argument
 	CreateKeyPair(opts GenKeyPairOpts) (kp KeyPair, err error)
 	ImportKeyPair(der []byte) (kp KeyPair, err error)
 }

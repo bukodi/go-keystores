@@ -2,6 +2,7 @@ package pkcs11ks
 
 import (
 	"crypto/x509"
+	"fmt"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
 )
@@ -12,6 +13,8 @@ type Pkcs11KeyStore struct {
 	tokenInfo *p11api.TokenInfo
 	slotInfo  *p11api.SlotInfo
 	hSession  p11api.SessionHandle
+
+	knownKeyPairs []*Pkcs11KeyPair
 }
 
 // Check whether implements the keystores.KeyStore interface
@@ -72,25 +75,78 @@ func (ks *Pkcs11KeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorit
 }
 
 func (ks *Pkcs11KeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs []error) {
-	template := []*p11api.Attribute{
-		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
-	}
-
-	if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, template); err != nil {
-		return nil, []error{err}
-	}
-	defer func() {
-		err := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
-		if err != nil {
-			if errs == nil {
-				errs = []error{}
-			}
-			errs = append(errs, err)
+	var reload = true // Add this var to argument
+	if ks.knownKeyPairs == nil || reload {
+		ks.knownKeyPairs = make([]*Pkcs11KeyPair, 0)
+		template := []*p11api.Attribute{
+			p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
 		}
-	}()
 
-	//panic("implement me")
-	return []keystores.KeyPair{}, nil
+		if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, template); err != nil {
+			return nil, []error{err}
+		}
+		defer func() {
+			err := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
+			if err != nil {
+				if errs == nil {
+					errs = []error{}
+				}
+				errs = append(errs, err)
+			}
+		}()
+
+		if hObjs, _, err := ks.provider.pkcs11Ctx.FindObjects(ks.hSession, 100); err != nil {
+			errs = append(errs, keystores.ErrorHandler(err))
+		} else {
+			for _, hObj := range hObjs {
+				p11Kp, err := ks.readKeypair(hObj)
+				if err != nil {
+					errs = append(errs, keystores.ErrorHandler(err))
+				} else {
+					ks.knownKeyPairs = append(ks.knownKeyPairs, p11Kp)
+				}
+			}
+		}
+	}
+
+	retArray := make([]keystores.KeyPair, len(ks.knownKeyPairs))
+	for i, kp := range ks.knownKeyPairs {
+		retArray[i] = kp
+	}
+	return retArray, errs
+}
+
+func (ks *Pkcs11KeyStore) readKeypair(hObj p11api.ObjectHandle) (*Pkcs11KeyPair, error) {
+	publicKeyTemplate := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_CLASS, nil),
+		p11api.NewAttribute(p11api.CKA_KEY_TYPE, nil),
+		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
+		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, nil),
+		p11api.NewAttribute(p11api.CKA_MODULUS, nil),
+		p11api.NewAttribute(p11api.CKA_LABEL, nil),
+	}
+	attrs, err := ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, publicKeyTemplate)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	kp := Pkcs11KeyPair{}
+
+	for _, attr := range attrs {
+		switch attr.Type {
+		case p11api.CKA_CLASS:
+		case p11api.CKA_KEY_TYPE:
+		case p11api.CKA_PUBLIC_EXPONENT:
+		case p11api.CKA_MODULUS_BITS:
+		case p11api.CKA_MODULUS:
+		case p11api.CKA_LABEL:
+			kp.label = string(attr.Value)
+		default:
+			fmt.Printf("Unknown attribute: %d", attr.Type)
+		}
+	}
+
+	return &kp, nil
 }
 
 func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
