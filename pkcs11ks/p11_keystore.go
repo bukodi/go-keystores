@@ -78,35 +78,10 @@ func (ks *Pkcs11KeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs []error)
 	var reload = true // Add this var to argument
 	if ks.knownKeyPairs == nil || reload {
 		ks.knownKeyPairs = make([]*Pkcs11KeyPair, 0)
-		template := []*p11api.Attribute{
-			p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
-		}
+		errs = make([]error, 0)
 
-		if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, template); err != nil {
-			return nil, []error{err}
-		}
-		defer func() {
-			err := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
-			if err != nil {
-				if errs == nil {
-					errs = []error{}
-				}
-				errs = append(errs, err)
-			}
-		}()
+		ks.readRSAKeyPairs(ks.knownKeyPairs, errs)
 
-		if hObjs, _, err := ks.provider.pkcs11Ctx.FindObjects(ks.hSession, 100); err != nil {
-			errs = append(errs, keystores.ErrorHandler(err))
-		} else {
-			for _, hObj := range hObjs {
-				p11Kp, err := ks.readKeypair(hObj)
-				if err != nil {
-					errs = append(errs, keystores.ErrorHandler(err))
-				} else {
-					ks.knownKeyPairs = append(ks.knownKeyPairs, p11Kp)
-				}
-			}
-		}
 	}
 
 	retArray := make([]keystores.KeyPair, len(ks.knownKeyPairs))

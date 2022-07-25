@@ -19,6 +19,8 @@ type Pkcs11KeyPair struct {
 	keyAlorithm keystores.KeyAlgorithm
 	label       string
 	keyUsage    x509.KeyUsage
+
+	CKA_KEY_TYPE int
 }
 
 func (kp *Pkcs11KeyPair) SetLabel(label string) error {
@@ -48,12 +50,12 @@ func (kp *Pkcs11KeyPair) initFields() error {
 		p11api.NewAttribute(p11api.CKA_LABEL, nil),
 	}
 
-	ctx, sess, err := kp.p11CtxWithSess()
+	p11ctx, sess, err := kp.p11CtxWithSess()
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
 
-	pubAttrs, err := ctx.GetAttributeValue(sess, kp.hPubKey, pubTemplate)
+	pubAttrs, err := p11ctx.GetAttributeValue(sess, kp.hPubKey, pubTemplate)
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
@@ -84,7 +86,7 @@ func (kp *Pkcs11KeyPair) initFields() error {
 		p11api.NewAttribute(p11api.CKA_UNWRAP, nil),
 		p11api.NewAttribute(p11api.CKA_DERIVE, nil),
 	}
-	privAttrs, err := ctx.GetAttributeValue(kp.keySore.hSession, kp.hPrivKey, privTemplate)
+	privAttrs, err := p11ctx.GetAttributeValue(kp.keySore.hSession, kp.hPrivKey, privTemplate)
 	if err != nil {
 		return keystores.ErrorHandler(err, kp)
 	}
