@@ -35,10 +35,10 @@ func parsePKCS8PrivateKey(der []byte) (*InMemoryKeyPair, error) {
 	}
 
 	var imkp InMemoryKeyPair
-	if rsaKey, ok := key.(rsa.PrivateKey); ok {
+	if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 		imkp.privKey = rsaKey
 		imkp.pubKey = rsaKey.Public()
-	} else if ecKey, ok := key.(ecdsa.PrivateKey); ok {
+	} else if ecKey, ok := key.(*ecdsa.PrivateKey); ok {
 		imkp.privKey = ecKey
 		imkp.pubKey = ecKey.Public()
 	} else if edKey, ok := key.(ed25519.PrivateKey); ok {

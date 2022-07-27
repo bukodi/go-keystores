@@ -1,6 +1,7 @@
 package inmemoryks
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
@@ -55,4 +56,38 @@ func TestParseFilename(t *testing.T) {
 	match := re.FindStringSubmatch("789a7c4-cica.priv")
 	t.Logf("%s-%s.priv", match[1], match[2])
 
+}
+
+func TestJKSExport(t *testing.T) {
+	ks := CreateInMemoryKeyStore()
+
+	if kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{Algorithm: keystores.KeyAlgRSA2048}); err != nil {
+		t.Fatal(err)
+	} else {
+		kp.SetLabel("rsa1")
+	}
+	if kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{Algorithm: keystores.KeyAlgECP256}); err != nil {
+		t.Fatal(err)
+	} else {
+		kp.SetLabel("ecp256")
+	}
+
+	var b bytes.Buffer
+	err := ks.SaveAsJKS(&b, []byte("Passw0rd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var b2 bytes.Buffer
+	b2.Write(b.Bytes())
+
+	ks2 := CreateInMemoryKeyStore()
+	err = ks2.LoadFromJKS(&b2, []byte("Passw0rd"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kps, _ := ks2.KeyPairs()
+	for _, kp := range kps {
+		t.Logf("%v", kp)
+	}
 }

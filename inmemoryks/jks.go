@@ -1,33 +1,67 @@
 package inmemoryks
 
 import (
+	"crypto/x509"
 	"github.com/bukodi/go-keystores"
 	jks "github.com/pavlo-v-chernykh/keystore-go/v4"
-	"log"
-	"os"
+	"io"
+	"time"
 )
 
-func (imks *InMemoryKeyStore) SaveAsJKS(filename string, password []byte) error {
+func (imks *InMemoryKeyStore) SaveAsJKS(w io.Writer, password []byte) error {
 	ks := jks.New()
 	kps, errs := imks.KeyPairs()
+	_ = errs // Ignore errors
 	for _, kp := range kps {
-
-	}
-	_ = ks
-
-	f, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer func() {
-		if err := f.Close(); err != nil {
-			log.Fatal(err)
+		alias := kp.Label()
+		privKey, err := kp.ExportPrivate()
+		if err != nil {
+			continue
 		}
-	}()
+		privKeyPkcs8, err := x509.MarshalPKCS8PrivateKey(privKey)
+		if err != nil {
+			continue
+		}
+		pke := jks.PrivateKeyEntry{
+			CreationTime:     time.Now(),
+			PrivateKey:       privKeyPkcs8,
+			CertificateChain: []jks.Certificate{},
+		}
+		err = ks.SetPrivateKeyEntry(alias, pke, password)
+		if err != nil {
+			return keystores.ErrorHandler(err)
+		}
+	}
 
-	err = ks.Store(f, password)
+	err := ks.Store(w, password)
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
+	return nil
+}
+
+func (imks *InMemoryKeyStore) LoadFromJKS(r io.Reader, password []byte) error {
+	ks := jks.New()
+	err := ks.Load(r, password)
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}
+
+	for _, alias := range ks.Aliases() {
+		if ks.IsPrivateKeyEntry(alias) {
+			pke, err := ks.GetPrivateKeyEntry(alias, password)
+			if err != nil {
+				return keystores.ErrorHandler(err)
+			}
+			kp, err := imks.ImportKeyPair(pke.PrivateKey)
+			if err != nil {
+				return keystores.ErrorHandler(err)
+			}
+			err = kp.SetLabel(alias)
+			if err != nil {
+				return keystores.ErrorHandler(err)
+			}
+		}
+	}
+	return nil
 }
