@@ -85,22 +85,28 @@ func TestCkType(t *testing.T) {
 
 }
 
-func TestDump(t *testing.T) {
-	var x CommonKeyAttributes
-
-	ts := reflect.TypeOf(x)
-	t.Logf(ts.Name())
-	if ts.Kind() != reflect.Struct {
-		t.Logf(ts.Kind().String())
+func printFields(t reflect.Type, fn func(reflect.StructField)) {
+	if t.Kind() != reflect.Struct {
 		return
 	}
 
-	for i := 0; i < ts.NumField(); i++ {
-		f := ts.Field(i)
-
-		t.Logf("%s %s", f.Name, f.Type.String())
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type.Kind() == reflect.Struct {
+			printFields(f.Type, fn)
+		} else {
+			fn(f)
+		}
 	}
 
+}
+
+func TestDump(t *testing.T) {
+	var x CommonKeyAttributes
+
+	printFields(reflect.TypeOf(x), func(f reflect.StructField) {
+		t.Logf("%s %s", f.Name, f.Type.String())
+	})
 }
 
 func TestDloadLib(t *testing.T) {

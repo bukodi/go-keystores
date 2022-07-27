@@ -8,7 +8,17 @@ import (
 
 type CK_OBJECT_CLASS CK_ULONG
 
+type CommonStorageObjectAttributes struct {
+	CKA_TOKEN       CK_BBOOL  // CK_TRUE if object is a token object; CK_FALSE if object is a session object. Default is CK_FALSE.
+	CKA_PRIVATE     CK_BBOOL  // CK_TRUE if object is a private object; CK_FALSE if object is a public object.  Default value is token-specific, and may depend on the values of other attributes of the object.
+	CKA_MODIFIABLE  CK_BBOOL  // CK_TRUE if object can be modified Default is CK_TRUE.
+	CKA_LABEL       CK_String // Description of the object (default empty).
+	CKA_COPYABLE    CK_BBOOL  // CK_TRUE if object can be copied using C_CopyObject. Defaults to CK_TRUE. Can’t be set to TRUE once it is set to FALSE.
+	CKA_DESTROYABLE CK_BBOOL  // CK_TRUE if the object can be destroyed using C_DestroyObject.  Default is CK_TRUE.
+}
+
 type CommonKeyAttributes struct {
+	CommonStorageObjectAttributes
 	CKA_KEY_TYPE           CK_KEY_TYPE           `p11notes:"1,5"`   // Type of key
 	CKA_ID                 CK_Bytes              `p11notes:"8"`     // Key identifier for key (default empty)
 	CKA_START_DATE         CK_DATE               `p11notes:"8"`     // Start date for the key (default empty)

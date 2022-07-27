@@ -16,15 +16,13 @@ type Attr struct {
 	desc      string
 }
 
-var t reflect.Type = reflect.TypeOf(CK_BBOOL(false))
-
 var CommonStorageObjectAttributesDesc = []Attr{
-	{reflect.TypeOf(CK_BBOOL(false)), "CKA_TOKEN", p11api.CKA_KEY_TYPE, []note{}, `CK_TRUE if object is a token object; CK_FALSE if object is a session object. Default is CK_FALSE.`},
-	{reflect.TypeOf(CK_BBOOL(false)), "CKA_PRIVATE", p11api.CKA_KEY_TYPE, []note{}, `CK_TRUE if object is a private object; CK_FALSE if object is a public object.  Default value is token-specific, and may depend on the values of other attributes of the object.`},
-	{reflect.TypeOf(CK_BBOOL(false)), "CKA_MODIFIABLE", p11api.CKA_KEY_TYPE, []note{}, `CK_TRUE if object can be modified Default is CK_TRUE.`},
-	{reflect.TypeOf(CK_String("")), "CKA_LABEL", p11api.CKA_KEY_TYPE, []note{}, `Description of the object (default empty).`},
-	{reflect.TypeOf(CK_BBOOL(false)), "CKA_COPYABLE", p11api.CKA_KEY_TYPE, []note{}, `CK_TRUE if object can be copied using C_CopyObject. Defaults to CK_TRUE. Can’t be set to TRUE once it is set to FALSE.`},
-	{reflect.TypeOf(CK_BBOOL(false)), "CKA_DESTROYABLE", p11api.CKA_KEY_TYPE, []note{}, `CK_TRUE if the object can be destroyed using C_DestroyObject.  Default is CK_TRUE.`},
+	{reflect.TypeOf(CK_BBOOL(false)), "CKA_TOKEN", p11api.CKA_TOKEN, []note{}, `CK_TRUE if object is a token object; CK_FALSE if object is a session object. Default is CK_FALSE.`},
+	{reflect.TypeOf(CK_BBOOL(false)), "CKA_PRIVATE", p11api.CKA_PRIVATE, []note{}, `CK_TRUE if object is a private object; CK_FALSE if object is a public object.  Default value is token-specific, and may depend on the values of other attributes of the object.`},
+	{reflect.TypeOf(CK_BBOOL(false)), "CKA_MODIFIABLE", p11api.CKA_MODIFIABLE, []note{}, `CK_TRUE if object can be modified Default is CK_TRUE.`},
+	{reflect.TypeOf(CK_String("")), "CKA_LABEL", p11api.CKA_LABEL, []note{}, `Description of the object (default empty).`},
+	{reflect.TypeOf(CK_BBOOL(false)), "CKA_COPYABLE", p11api.CKA_COPYABLE, []note{}, `CK_TRUE if object can be copied using C_CopyObject. Defaults to CK_TRUE. Can’t be set to TRUE once it is set to FALSE.`},
+	{reflect.TypeOf(CK_BBOOL(false)), "CKA_DESTROYABLE", p11api.CKA_DESTROYABLE, []note{}, `CK_TRUE if the object can be destroyed using C_DestroyObject.  Default is CK_TRUE.`},
 }
 
 var CommonKeyAttributesDesc = []Attr{
