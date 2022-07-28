@@ -5,8 +5,14 @@ import (
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
+	"reflect"
 	"time"
 )
+
+type CkValue interface {
+	readToValue(bytes []byte, v reflect.Value) error
+	writeFromValue(v reflect.Value) ([]byte, error)
+}
 
 type CkType[T any] interface {
 	read(bytes []byte) (T, error)
@@ -15,7 +21,7 @@ type CkType[T any] interface {
 
 type CK_BBOOL bool
 
-//var _ CkType[CK_BBOOL] = CK_BBOOL(nil)
+var _ CkType[CK_BBOOL] = CK_BBOOL(false)
 
 type CK_ULONG uint32
 
@@ -65,6 +71,45 @@ func (a CK_BBOOL) read(bytes []byte) (CK_BBOOL, error) {
 func (a CK_BBOOL) write() ([]byte, error) {
 	bytes := []byte{0}
 	if a {
+		bytes[0] = 1
+	} else {
+		bytes[0] = 0
+	}
+	return bytes, nil
+}
+
+func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
+	switch v.Type() {
+	case reflect.TypeOf(CK_BBOOL(false)):
+		if len(bytes) != 1 {
+			return fmt.Errorf("wrong attr value size. Expected %d, actual %d", 1, len(bytes))
+		}
+
+		v.SetBool(bytes[0] != 0)
+		return nil
+	default:
+		return fmt.Errorf("unsupported type: %s", v.Type().String())
+	}
+}
+
+func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
+	switch v.Type() {
+	case reflect.TypeOf(CK_BBOOL(false)):
+		bytes := []byte{0}
+		if v.Bool() {
+			bytes[0] = 1
+		} else {
+			bytes[0] = 0
+		}
+		return bytes, nil
+	default:
+		return nil, fmt.Errorf("unsupported type: %s", v.Type().String())
+	}
+}
+
+func (a CK_BBOOL) writeFromValue(v reflect.Value) ([]byte, error) {
+	bytes := []byte{0}
+	if v.Bool() {
 		bytes[0] = 1
 	} else {
 		bytes[0] = 0

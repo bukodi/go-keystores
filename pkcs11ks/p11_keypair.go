@@ -20,7 +20,8 @@ type Pkcs11KeyPair struct {
 	label       string
 	keyUsage    x509.KeyUsage
 
-	CKA_KEY_TYPE int
+	PublicKeyAttributes  CommonPublicKeyAttributes
+	PrivateKeyAttributes CommonPrivateKeyAttributes
 }
 
 func (kp *Pkcs11KeyPair) SetLabel(label string) error {

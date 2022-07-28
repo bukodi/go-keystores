@@ -10,7 +10,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 )
@@ -69,44 +68,6 @@ func copyDir(source, destination string) error {
 		}
 	})
 	return err
-}
-
-func TestCkType(t *testing.T) {
-
-	var b1, b2 CK_BBOOL
-	b1 = true
-	buff, err := b1.write()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	b3, err := b2.read(buff)
-	b2 = b3
-
-}
-
-func printFields(t reflect.Type, fn func(reflect.StructField)) {
-	if t.Kind() != reflect.Struct {
-		return
-	}
-
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if f.Type.Kind() == reflect.Struct {
-			printFields(f.Type, fn)
-		} else {
-			fn(f)
-		}
-	}
-
-}
-
-func TestDump(t *testing.T) {
-	var x CommonKeyAttributes
-
-	printFields(reflect.TypeOf(x), func(f reflect.StructField) {
-		t.Logf("%s %s", f.Name, f.Type.String())
-	})
 }
 
 func TestDloadLib(t *testing.T) {
