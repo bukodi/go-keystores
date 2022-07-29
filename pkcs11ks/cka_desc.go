@@ -32,7 +32,7 @@ func init() {
 		{"", reflect.TypeOf(CK_Bytes(nil)), "CKA_ID", p11api.CKA_ID, []note{8}, ` Key identifier for key (default empty)`},
 		{"", reflect.TypeOf(CK_DATE(time.Time{})), "CKA_START_DATE", p11api.CKA_START_DATE, []note{8}, ` Start date for the key (default empty)`},
 		{"", reflect.TypeOf(CK_DATE(time.Time{})), "CKA_END_DATE", p11api.CKA_END_DATE, []note{8}, ` End date for the key (default empty)`},
-		{"", reflect.TypeOf(CK_BBOOL(false)), "CKA_DERIVE", p11api.CKA_START_DATE, []note{8}, ` CK_TRUE if key supports key derivation (i.e., if other keys can be derived from this one (default CK_FALSE)`},
+		{"", reflect.TypeOf(CK_BBOOL(false)), "CKA_DERIVE", p11api.CKA_DERIVE, []note{8}, ` CK_TRUE if key supports key derivation (i.e., if other keys can be derived from this one (default CK_FALSE)`},
 		{"", reflect.TypeOf(CK_BBOOL(false)), "CKA_LOCAL", p11api.CKA_LOCAL, []note{2, 4, 6}, ` CK_TRUE only if key was either (a.) generated locally (i.e., on the token) with a C_GenerateKey or C_GenerateKeyPair call (b.) created with a C_CopyObject call as a copy of a key which had its CKA_LOCAL attribute set to CK_TRUE`},
 		{"", reflect.TypeOf(CK_MECHANISM_TYPE(0)), "CKA_KEY_GEN_MECHANISM", p11api.CKA_KEY_GEN_MECHANISM, []note{2, 4, 6}, ` Identifier of the mechanism used to generate the key material.`},
 		{"", reflect.TypeOf(CK_MECHANISM_TYPE_PTR([]CK_MECHANISM_TYPE{})), "CKA_ALLOWED_MECHANISMS", p11api.CKA_ALLOWED_MECHANISMS, []note{}, ` pointer to a CK_MECHANISM_TYPE array A list of mechanisms allowed to be used with this key. The number of mechanisms in the array is the ulValueLen component of the attribute divided by the size of CK_MECHANISM_TYPE.`},
