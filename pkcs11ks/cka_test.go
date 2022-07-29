@@ -19,7 +19,7 @@ func TestCkaStructConverter(t *testing.T) {
 	}
 
 	var p11KpB Pkcs11KeyPair
-	err = ckaStructFromP11Attrs(&(p11KpB.PrivateKeyAttributes), p11Attrs)
+	err = ckaStructFromP11Attrs(&p11KpB.PublicKeyAttributes, p11Attrs)
 	if err != nil {
 		t.Error(err)
 	}
