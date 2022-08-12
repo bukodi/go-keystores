@@ -36,12 +36,16 @@ func (ks *YkKeyStore) IsOpen() bool {
 	return true
 }
 
+func (ks *YkKeyStore) Reload() error {
+	return nil
+}
+
 func (ks *YkKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
 	algs := []keystores.KeyAlgorithm{keystores.KeyAlgRSA2048, keystores.KeyAlgECP256}
 	return algs
 }
 
-func (ks *YkKeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs []error) {
+func (ks *YkKeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs error) {
 	panic("implement me")
 }
 

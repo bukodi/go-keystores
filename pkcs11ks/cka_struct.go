@@ -8,13 +8,16 @@ import (
 	"time"
 )
 
-type CK_OBJECT_CLASS CK_ULONG
-
 type CkaStruct interface {
-	*CommonStorageObjectAttributes | *CommonKeyAttributes | *CommonPublicKeyAttributes | *CommonPrivateKeyAttributes
+	*CommonObjectAttributes | *CommonStorageObjectAttributes | *CommonKeyAttributes | *CommonPublicKeyAttributes | *CommonPrivateKeyAttributes
+}
+
+type CommonObjectAttributes struct {
+	CKA_CLASS CK_OBJECT_CLASS // Object class (type)
 }
 
 type CommonStorageObjectAttributes struct {
+	CommonObjectAttributes
 	CKA_TOKEN       CK_BBOOL  // CK_TRUE if object is a token object; CK_FALSE if object is a session object. Default is CK_FALSE.
 	CKA_PRIVATE     CK_BBOOL  // CK_TRUE if object is a private object; CK_FALSE if object is a public object.  Default value is token-specific, and may depend on the values of other attributes of the object.
 	CKA_MODIFIABLE  CK_BBOOL  // CK_TRUE if object can be modified Default is CK_TRUE.
@@ -138,12 +141,6 @@ func processCkaFields(pv reflect.Value, fn func(reflect.Value, *CkaDesc) error) 
 	}
 
 	return nil
-}
-
-func addToTemplate(template []*p11api.Attribute, attrs []CkaDesc) {
-	for _, attr := range attrs {
-		template = append(template, p11api.NewAttribute(attr.code, nil))
-	}
 }
 
 func lookupAttrDesc(attrDesc []CkaDesc, code uint) *CkaDesc {

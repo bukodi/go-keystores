@@ -15,6 +15,11 @@ type Pkcs11KeyStore struct {
 	hSession  p11api.SessionHandle
 
 	knownKeyPairs []*Pkcs11KeyPair
+	knownCerts    []*Pkcs11KeyPair
+
+	knownPubKeys             map[keystores.KeyPairId]*CommonPublicKeyAttributes
+	knownPrivKeys            map[keystores.KeyPairId]*CommonPrivateKeyAttributes
+	knownOtherStorageObjects []*CommonStorageObjectAttributes
 }
 
 // Check whether implements the keystores.KeyStore interface
@@ -49,6 +54,14 @@ func (ks *Pkcs11KeyStore) Open() error {
 	return nil
 }
 
+func (ks *Pkcs11KeyStore) Reload() error {
+	err := ks.readStorageObjects()
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}
+	return err
+}
+
 func (ks *Pkcs11KeyStore) Close() error {
 	if ks.hSession == 0 {
 		return keystores.ErrorHandler(keystores.ErrAlreadyClosed)
@@ -74,21 +87,20 @@ func (ks *Pkcs11KeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorit
 	return algs
 }
 
-func (ks *Pkcs11KeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs []error) {
+func (ks *Pkcs11KeyStore) KeyPairs() ([]keystores.KeyPair, error) {
 	var reload = true // Add this var to argument
 	if ks.knownKeyPairs == nil || reload {
-		ks.knownKeyPairs = make([]*Pkcs11KeyPair, 0)
-		errs = make([]error, 0)
-
-		ks.readRSAKeyPairs(ks.knownKeyPairs, errs)
-
+		err := ks.Reload()
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
 	}
 
 	retArray := make([]keystores.KeyPair, len(ks.knownKeyPairs))
 	for i, kp := range ks.knownKeyPairs {
 		retArray[i] = kp
 	}
-	return retArray, errs
+	return retArray, nil
 }
 
 func (ks *Pkcs11KeyStore) readKeypair(hObj p11api.ObjectHandle) (*Pkcs11KeyPair, error) {

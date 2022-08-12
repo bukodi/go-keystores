@@ -43,12 +43,16 @@ func (imks *InMemoryKeyStore) IsOpen() bool {
 	return imks.isLoaded
 }
 
+func (imks *InMemoryKeyStore) Reload() error {
+	return nil
+}
+
 func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
 	algs := []keystores.KeyAlgorithm{keystores.KeyAlgRSA2048, keystores.KeyAlgECP256}
 	return algs
 }
 
-func (imks *InMemoryKeyStore) KeyPairs() ([]keystores.KeyPair, []error) {
+func (imks *InMemoryKeyStore) KeyPairs() ([]keystores.KeyPair, error) {
 	if imks.keyPairs == nil {
 		return make([]keystores.KeyPair, 0), nil
 	}

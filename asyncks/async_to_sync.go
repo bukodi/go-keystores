@@ -54,11 +54,15 @@ func (s syncKs) IsOpen() bool {
 	panic("implement me")
 }
 
+func (s syncKs) Reload() error {
+	panic("implement me")
+}
+
 func (s syncKs) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
 	panic("implement me")
 }
 
-func (s syncKs) KeyPairs() ([]keystores.KeyPair, []error) {
+func (s syncKs) KeyPairs() ([]keystores.KeyPair, error) {
 	panic("implement me")
 }
 

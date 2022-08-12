@@ -20,6 +20,7 @@ type CK_DATE time.Time
 type CK_KEY_TYPE CK_ULONG
 type CK_Bytes []byte
 type CK_String string
+type CK_OBJECT_CLASS CK_ULONG
 type CK_MECHANISM_TYPE CK_ULONG
 type CK_MECHANISM_TYPE_PTR []CK_MECHANISM_TYPE
 type CK_ATTRIBUTE_PTR CK_Bytes
@@ -134,6 +135,22 @@ func bytesFrom_CK_String(a CK_String) []byte {
 	return bytes
 }
 
+func bytesTo_CK_OBJECT_CLASS(bytes []byte) (CK_OBJECT_CLASS, error) {
+	switch len(bytes) {
+	case 4:
+		return CK_OBJECT_CLASS(binary.LittleEndian.Uint32(bytes)), nil
+	case 8:
+		return CK_OBJECT_CLASS(binary.LittleEndian.Uint64(bytes)), nil
+	default:
+		return 0, fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
+	}
+}
+
+func bytesFrom_CK_OBJECT_CLASS(a CK_OBJECT_CLASS) []byte {
+	bytes := []byte{0, 0, 0, 0}
+	binary.LittleEndian.PutUint32(bytes, uint32(a))
+	return bytes
+}
 func bytesTo_CK_MECHANISM_TYPE(bytes []byte) (CK_MECHANISM_TYPE, error) {
 	if len(bytes) != 4 {
 		return 0, fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
@@ -214,6 +231,16 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		}
 		v.SetString(string(buff))
 		return nil
+	case reflect.TypeOf(CK_OBJECT_CLASS(0)):
+		switch len(bytes) {
+		case 4:
+			v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
+		case 8:
+			v.SetUint(uint64(binary.LittleEndian.Uint64(bytes)))
+		default:
+			return fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
+		}
+		return nil
 	case reflect.TypeOf(CK_MECHANISM_TYPE(0)):
 		if len(bytes) != 4 {
 			return fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
@@ -279,6 +306,10 @@ func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
 		for i, b := range aAsBytes {
 			bytes[i] = b
 		}
+		return bytes, nil
+	case reflect.TypeOf(CK_OBJECT_CLASS(0)):
+		bytes := []byte{0, 0, 0, 0}
+		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
 		return bytes, nil
 	case reflect.TypeOf(CK_MECHANISM_TYPE(0)):
 		bytes := []byte{0, 0, 0, 0}

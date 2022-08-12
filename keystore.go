@@ -16,8 +16,9 @@ type KeyStore interface {
 	Open() error
 	Close() error
 	IsOpen() bool
+	Reload() error
 	SupportedPrivateKeyAlgorithms() []KeyAlgorithm
-	KeyPairs() ([]KeyPair, []error) // TODO: add (reload bool) argument
+	KeyPairs() ([]KeyPair, error) // TODO: add (reload bool) argument
 	CreateKeyPair(opts GenKeyPairOpts) (kp KeyPair, err error)
 	ImportKeyPair(der []byte) (kp KeyPair, err error)
 }
@@ -28,6 +29,7 @@ type AsyncKeyStore interface {
 	Open(ctx context.Context) <-chan error
 	Close(ctx context.Context) <-chan error
 	IsOpen(ctx context.Context) <-chan bool
+	Reload(ctx context.Context) <-chan error
 	SupportedPrivateKeyAlgorithms(ctx context.Context) <-chan KeyAlgorithm
 	KeyPairs(ctx context.Context) (<-chan AsyncKeyPair, <-chan error)
 	CreateKeyPair(ctx context.Context, opts GenKeyPairOpts) (<-chan AsyncKeyPair, <-chan error)

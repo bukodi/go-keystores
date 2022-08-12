@@ -18,6 +18,10 @@ type CkaDesc struct {
 }
 
 func init() {
+	registerCkaDesc("CommonObjectAttributes", []*CkaDesc{
+		{"", reflect.TypeOf(CK_OBJECT_CLASS(0)), "CKA_CLASS", p11api.CKA_CLASS, []note{1}, `Object class (type)`},
+	})
+
 	registerCkaDesc("CommonStorageObjectAttributes", []*CkaDesc{
 		{"", reflect.TypeOf(CK_BBOOL(false)), "CKA_TOKEN", p11api.CKA_TOKEN, []note{}, `CK_TRUE if object is a token object; CK_FALSE if object is a session object. Default is CK_FALSE.`},
 		{"", reflect.TypeOf(CK_BBOOL(false)), "CKA_PRIVATE", p11api.CKA_PRIVATE, []note{}, `CK_TRUE if object is a private object; CK_FALSE if object is a public object.  Default value is token-specific, and may depend on the values of other attributes of the object.`},
