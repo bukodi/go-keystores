@@ -7,6 +7,7 @@ import (
 
 func TestCkaStructConverter(t *testing.T) {
 	var p11KpA Pkcs11KeyPair
+	p11KpA.PublicKeyAttributes = &CommonPublicKeyAttributes{}
 	p11KpA.PublicKeyAttributes.CKA_PRIVATE = true
 	p11KpA.PublicKeyAttributes.CKA_START_DATE = CK_DATE(time.Now())
 

@@ -74,7 +74,7 @@ func ckaStructToP11Attrs[T CkaStruct](ckaStruct T) ([]*p11api.Attribute, error) 
 	err := processCkaFields(pv, func(v reflect.Value, ckaDesc *CkaDesc) error {
 		bytes, err := ckValueWriteToBytes(v)
 		if err != nil {
-			return err
+			return keystores.ErrorHandler(fmt.Errorf("can't read %s to bytes: %w", ckaDesc.name, err))
 		}
 
 		var p11Attr p11api.Attribute
@@ -105,7 +105,7 @@ func ckaStructFromP11Attrs[T CkaStruct](ckaStruct T, p11Attrs []*p11api.Attribut
 
 		err := ckValueSetFromBytes(p11Attr.Value, v)
 		if err != nil {
-			return err
+			return keystores.ErrorHandler(fmt.Errorf("can't set %s from %v bytes: %w", ckaDesc.name, p11Attr.Value, err))
 		}
 		return nil
 	})

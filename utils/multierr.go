@@ -85,5 +85,23 @@ func (me *MultiErr) As(target interface{}) bool {
 }
 
 func (me *MultiErr) Error() string {
-	return fmt.Sprintf("%v", me.errors)
+	if me.errors == nil {
+		return "empty list of errors"
+	}
+	msg := fmt.Sprintf("%d errors:", len(me.errors))
+	for i, err := range me.errors {
+		msg += fmt.Sprintf("\n%d.: %s", i, err.Error())
+	}
+	return msg
+}
+
+func (me *MultiErr) GoString() string {
+	if me.errors == nil {
+		return "empty list of errors"
+	}
+	msg := fmt.Sprintf("%d errors:", len(me.errors))
+	for i, err := range me.errors {
+		msg += fmt.Sprintf("\n%d.: %s", i, err)
+	}
+	return msg
 }

@@ -185,6 +185,18 @@ func bytesFrom_CK_MECHANISM_TYPE_PTR(a CK_MECHANISM_TYPE_PTR) []byte {
 	return bytes
 }
 
+func uint32or64ValueFromBytes(bytes []byte, v reflect.Value) error {
+	switch len(bytes) {
+	case 4:
+		v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
+	case 8:
+		v.SetUint(uint64(binary.LittleEndian.Uint64(bytes)))
+	default:
+		return fmt.Errorf("wrong attr value size (expected length 4 or 8 , actual is %d)", len(bytes))
+	}
+	return nil
+}
+
 func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 	switch v.Type() {
 	case reflect.TypeOf(CK_BBOOL(false)):
@@ -201,6 +213,10 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
 		return nil
 	case reflect.TypeOf(CK_DATE{}):
+		if len(bytes) == 0 {
+			v.Set(reflect.ValueOf(CK_DATE{}))
+			return nil
+		}
 		if len(bytes) != 8 {
 			return keystores.ErrorHandler(fmt.Errorf("wrong attr value size. Expected %d, actual %d", 8, len(bytes)))
 		}
@@ -212,11 +228,7 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.Set(reflect.ValueOf(CK_DATE(d)))
 		return nil
 	case reflect.TypeOf(CK_KEY_TYPE(0)):
-		if len(bytes) != 4 {
-			return fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
-		}
-		v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
-		return nil
+		return uint32or64ValueFromBytes(bytes, v)
 	case reflect.TypeOf(CK_Bytes{}):
 		x := make([]byte, len(bytes))
 		for i, b := range bytes {
@@ -232,19 +244,9 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.SetString(string(buff))
 		return nil
 	case reflect.TypeOf(CK_OBJECT_CLASS(0)):
-		switch len(bytes) {
-		case 4:
-			v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
-		case 8:
-			v.SetUint(uint64(binary.LittleEndian.Uint64(bytes)))
-		default:
-			return fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
-		}
-		return nil
+		return uint32or64ValueFromBytes(bytes, v)
 	case reflect.TypeOf(CK_MECHANISM_TYPE(0)):
-		if len(bytes) != 4 {
-			return fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
-		}
+		return uint32or64ValueFromBytes(bytes, v)
 		v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
 		return nil
 	case reflect.TypeOf(CK_MECHANISM_TYPE_PTR{}):

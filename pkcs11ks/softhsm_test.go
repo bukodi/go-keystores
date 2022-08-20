@@ -94,7 +94,7 @@ func TestSoftHSM(t *testing.T) {
 	}()
 }
 
-func TestListPksc11KeyStores(t *testing.T) {
+func TestListPkcs11KeyStores(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
 	err := keystores.EnsureOpen(p)
@@ -111,10 +111,24 @@ func TestListPksc11KeyStores(t *testing.T) {
 		t.Fatal()
 	}
 
+	var ksTestTokenA *Pkcs11KeyStore
 	for i, ks := range ksList {
 		t.Logf("%d. %s : %s", i, ks.Id(), ks.Name())
+		if "TestTokenA" == ks.Name() {
+			ksTestTokenA, _ = ks.(*Pkcs11KeyStore)
+		}
+	}
+	if ksTestTokenA == nil {
+		t.Fatalf("TestTokenA not found")
 	}
 
+	keyPairs, err := ksTestTokenA.KeyPairs()
+	if err != nil {
+		t.Error(err)
+	}
+	for _, kp := range keyPairs {
+		t.Logf("KeyPair %s (%s)", kp.Label(), kp.Id())
+	}
 }
 
 func TestRsaGenSignVerify(t *testing.T) {

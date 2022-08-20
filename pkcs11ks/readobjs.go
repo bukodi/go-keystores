@@ -10,11 +10,27 @@ import (
 )
 
 func (ks *Pkcs11KeyStore) readStorageObjects() (err error) {
+	if err = keystores.EnsureOpen(ks); err != nil {
+		return keystores.ErrorHandler(err)
+	}
 	if err = ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, []*p11api.Attribute{}); err != nil {
 		return keystores.ErrorHandler(err)
 	}
 	defer func() {
-		err = ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
+		finErr := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
+		if finErr != nil {
+			finErr = keystores.ErrorHandler(finErr)
+			if err == nil {
+				err = finErr
+			} else if multiErr, ok := err.(*utils.MultiErr); ok {
+				multiErr.Append(finErr)
+			} else {
+				multiErr = utils.NewMultiErr()
+				multiErr.Append(err)
+				multiErr.Append(finErr)
+				err = multiErr
+			}
+		}
 	}()
 
 	hObjs, _, err := ks.provider.pkcs11Ctx.FindObjects(ks.hSession, 100)
@@ -22,6 +38,8 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (err error) {
 		return keystores.ErrorHandler(err)
 	}
 
+	ks.knownPubKeys = make(map[keystores.KeyPairId]*CommonPublicKeyAttributes, 0)
+	ks.knownPrivKeys = make(map[keystores.KeyPairId]*CommonPrivateKeyAttributes, 0)
 	errs := make([]error, 0)
 	for _, hObj := range hObjs {
 		classAttr := []*p11api.Attribute{&p11api.Attribute{p11api.CKA_CLASS, nil}}
