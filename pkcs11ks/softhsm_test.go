@@ -14,9 +14,9 @@ import (
 	"testing"
 )
 
-var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+//var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
 
-//var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
+var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
 
 //var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
 
@@ -124,7 +124,7 @@ func TestListPkcs11KeyStores(t *testing.T) {
 
 	keyPairs, err := ksTestTokenA.KeyPairs()
 	if err != nil {
-		t.Errorf("%+v", err)
+		t.Errorf("%#v", err)
 	}
 	for _, kp := range keyPairs {
 		t.Logf("KeyPair %s (%s)", kp.Label(), kp.Id())

@@ -36,6 +36,28 @@ func (ws withStack) String() string {
 	return fmt.Sprintf("%T: %s", ws.cause, ws.cause.Error())
 }
 
+const maxDumpDepth = 5
+
+func (ws withStack) GoString() string {
+	msg := fmt.Sprintf("%#v", ws.cause)
+	if ws.stack != nil && len(ws.stack) > 0 {
+		for i := 0; i < len(ws.stack) && i < maxDumpDepth; i++ {
+			fn := runtime.FuncForPC(ws.stack[i])
+			if fn != nil {
+				fullPath, line := fn.FileLine(ws.stack[i])
+				_, file := path.Split(fullPath)
+				msg += fmt.Sprintf("\n  %s:%d", file, line)
+			} else {
+				msg += "\n  <frame not available>"
+			}
+
+		}
+	} else {
+		msg += "\n  <stack trace not available>"
+	}
+	return msg
+}
+
 func WithStack(err error) error {
 	return WithStackSkip(1, err)
 }

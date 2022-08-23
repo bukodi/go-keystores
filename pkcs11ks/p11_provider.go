@@ -31,6 +31,9 @@ func (p *Pkcs11Provider) Open() error {
 		return keystores.ErrorHandler(keystores.ErrAlreadyOpen, p)
 	}
 	p11Ctx := p11api.New(p.driverPath)
+	if p11Ctx == nil {
+		return keystores.ErrorHandler(fmt.Errorf("can't open driver: %s", p.driverPath), p)
+	}
 	err := p11Ctx.Initialize()
 	if err != nil {
 		return keystores.ErrorHandler(err, p)

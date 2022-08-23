@@ -101,7 +101,7 @@ func (me *MultiErr) GoString() string {
 	}
 	msg := fmt.Sprintf("%d errors:", len(me.errors))
 	for i, err := range me.errors {
-		msg += fmt.Sprintf("\n%d.: %s", i, err)
+		msg += fmt.Sprintf("\n%d.: %#v", i, err)
 	}
 	return msg
 }
