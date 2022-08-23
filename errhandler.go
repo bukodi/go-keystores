@@ -1,6 +1,8 @@
 package keystores
 
-import "github.com/pkg/errors"
+import (
+	"github.com/bukodi/go-keystores/utils"
+)
 
 var ErrorHandler func(err error, context ...interface{}) error
 
@@ -9,5 +11,5 @@ func init() {
 }
 
 func defaultErrorHandler(err error, context ...interface{}) error {
-	return errors.WithStack(err)
+	return utils.WithStack(err)
 }

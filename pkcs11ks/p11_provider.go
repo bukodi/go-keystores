@@ -11,6 +11,7 @@ type Pkcs11Config struct {
 }
 
 type Pkcs11Provider struct {
+	// TODO: support multiple driver paths
 	driverPath string
 	pkcs11Ctx  *p11api.Ctx
 }

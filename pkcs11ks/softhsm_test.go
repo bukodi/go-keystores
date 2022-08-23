@@ -14,9 +14,9 @@ import (
 	"testing"
 )
 
-//var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
 
-var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
+//var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
 
 //var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
 
@@ -124,7 +124,7 @@ func TestListPkcs11KeyStores(t *testing.T) {
 
 	keyPairs, err := ksTestTokenA.KeyPairs()
 	if err != nil {
-		t.Error(err)
+		t.Errorf("%+v", err)
 	}
 	for _, kp := range keyPairs {
 		t.Logf("KeyPair %s (%s)", kp.Label(), kp.Id())
@@ -173,9 +173,9 @@ func TestRsaGenSignVerify(t *testing.T) {
 }
 
 func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
-	kps, errs := ks.KeyPairs()
-	if errs != nil {
-		t.Fatal(errs)
+	kps, err := ks.KeyPairs()
+	if err != nil {
+		t.Fatal(err)
 	}
 	if len(kps) == 0 {
 		t.Logf("No key pairs.")
