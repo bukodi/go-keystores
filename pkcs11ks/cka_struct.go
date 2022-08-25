@@ -9,7 +9,10 @@ import (
 )
 
 type CkaStruct interface {
-	*CommonObjectAttributes | *CommonStorageObjectAttributes | *CommonKeyAttributes | *CommonPublicKeyAttributes | *CommonPrivateKeyAttributes
+	*CommonObjectAttributes | *CommonStorageObjectAttributes |
+		*CommonKeyAttributes | *CommonPublicKeyAttributes | *CommonPrivateKeyAttributes |
+		*RSAPublicKeyAttributes | *RSAPrivateKeyAttributes |
+		*ECCPublicKeyAttributes | *ECCPrivateKeyAttributes | *GenericSecretKeyAttributes
 }
 
 type CommonObjectAttributes struct {
@@ -67,11 +70,56 @@ type CommonPrivateKeyAttributes struct {
 	CKA_PUBLIC_KEY_INFO     CK_Bytes         // DER-encoding of the SubjectPublicKeyInfo for the associated public key (MAY be empty; DEFAULT derived from the underlying private key data; MAY be manually set for specific key types; if set; MUST be consistent with the underlying private key data)
 }
 
-func ckaStructToP11Attrs[T CkaStruct](ckaStruct T) ([]*p11api.Attribute, error) {
+type RSAPublicKeyAttributes struct {
+	CommonPublicKeyAttributes
+	CKA_MODULUS         CK_BigInt // Modulus n
+	CKA_MODULUS_BITS    CK_ULONG  // Length in bits of modulus n
+	CKA_PUBLIC_EXPONENT CK_BigInt // Public exponent e
+}
+
+type RSAPrivateKeyAttributes struct {
+	CommonPrivateKeyAttributes
+	CKA_MODULUS          CK_BigInt // Modulus n
+	CKA_PUBLIC_EXPONENT  CK_BigInt // Public exponent e
+	CKA_PRIVATE_EXPONENT CK_BigInt // Private exponent d
+	CKA_PRIME_1          CK_BigInt // Prime p
+	CKA_PRIME_2          CK_BigInt // Prime q
+	CKA_EXPONENT_1       CK_BigInt // Private exponent d modulo p-1
+	CKA_EXPONENT_2       CK_BigInt // Private exponent d modulo q-1
+	CKA_COEFFICIENT      CK_BigInt // CRT coefficient 1/q mod p
+}
+
+type ECCPublicKeyAttributes struct {
+	CommonPublicKeyAttributes
+	CKA_EC_PARAMS CK_Bytes // DER-encoding of an ANSI X9.62 Parameters value
+	CKA_EC_POINT  CK_Bytes // DER-encoding of ANSI X9.62 ECPoint value Q
+}
+
+type ECCPrivateKeyAttributes struct {
+	CommonPrivateKeyAttributes
+	CKA_EC_PARAMS CK_Bytes  // DER-encoding of an ANSI X9.62 Parameters value
+	CKA_VALUE     CK_BigInt // ANSI X9.62 private value d
+}
+
+type GenericSecretKeyAttributes struct {
+	CommonKeyAttributes
+	CKA_VALUE     CK_Bytes // Key value (arbitrary length)
+	CKA_VALUE_LEN CK_ULONG // Length in bytes of key value
+}
+
+func ckaStructToP11Attrs[T CkaStruct](ckaStruct T, skipSensitiveAttrs bool) ([]*p11api.Attribute, error) {
 	p11Attrs := make([]*p11api.Attribute, 0)
 
 	pv := reflect.ValueOf(ckaStruct)
 	err := processCkaFields(pv, func(v reflect.Value, ckaDesc *CkaDesc) error {
+		if skipSensitiveAttrs {
+			for _, note := range ckaDesc.notes {
+				if note == noteSensitiveAttribute {
+					return nil
+				}
+			}
+		}
+
 		bytes, err := ckValueWriteToBytes(v)
 		if err != nil {
 			return keystores.ErrorHandler(fmt.Errorf("can't read %s to bytes: %w", ckaDesc.name, err))

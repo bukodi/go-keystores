@@ -19,6 +19,7 @@ type CK_ULONG uint32
 type CK_DATE time.Time
 type CK_KEY_TYPE CK_ULONG
 type CK_Bytes []byte
+type CK_BigInt CK_Bytes
 type CK_String string
 type CK_OBJECT_CLASS CK_ULONG
 type CK_MECHANISM_TYPE CK_ULONG
@@ -211,11 +212,7 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.SetBool(bytes[0] != 0)
 		return nil
 	case reflect.TypeOf(CK_ULONG(0)):
-		if len(bytes) != 4 {
-			return fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
-		}
-		v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
-		return nil
+		return uint32or64ValueFromBytes(bytes, v)
 	case reflect.TypeOf(CK_DATE{}):
 		if len(bytes) == 0 {
 			v.Set(reflect.ValueOf(CK_DATE{}))
@@ -233,7 +230,7 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		return nil
 	case reflect.TypeOf(CK_KEY_TYPE(0)):
 		return uint32or64ValueFromBytes(bytes, v)
-	case reflect.TypeOf(CK_Bytes{}):
+	case reflect.TypeOf(CK_Bytes{}), reflect.TypeOf(CK_BigInt{}):
 		x := make([]byte, len(bytes))
 		for i, b := range bytes {
 			(x)[i] = b
@@ -299,7 +296,7 @@ func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
 		bytes := []byte{0, 0, 0, 0}
 		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
 		return bytes, nil
-	case reflect.TypeOf(CK_Bytes{}):
+	case reflect.TypeOf(CK_Bytes{}), reflect.TypeOf(CK_BigInt{}):
 		a := v.Bytes()
 		bytes := make([]byte, len(a))
 		for i, b := range a {

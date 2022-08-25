@@ -17,6 +17,42 @@ type CkaDesc struct {
 	desc      string
 }
 
+// MUST be specified when object is created with C_CreateObject.
+const noteCreateObjectMandatory = 1
+
+// MUST not be specified when object is created with C_CreateObject.
+const noteCreateObjectNotAllowed = 2
+
+// MUST be specified when object is generated with C_GenerateKey or C_GenerateKeyPair.
+const noteGenKeyMandatory = 3
+
+// MUST not be specified when object is generated with C_GenerateKey or C_GenerateKeyPair.
+const noteGenKeyNotAllowed = 4
+
+// MUST be specified when object is unwrapped with C_UnwrapKey.
+const noteUnwrapKeyMandatory = 5
+
+// MUST not be specified when object is unwrapped with C_UnwrapKey.
+const noteUnwrapKeyNotAllowed = 6
+
+// Cannot be revealed if object has its CKA_SENSITIVE attribute set to CK_TRUE or its CKA_EXTRACTABLE attribute set to CK_FALSE.
+const noteSensitiveAttribute = 7
+
+//8 May be modified after object is created with a C_SetAttributeValue call, or in the process of copying object with a C_CopyObject call.  However, it is possible that a particular token may not permit modification of the attribute during the course of a C_CopyObject call.
+const noteModifiable = 8
+
+//Default value is token-specific, and may depend on the values of other attributes.
+const noteTokenSpecificDefaultValue = 9
+
+//Can only be set to CK_TRUE by the SO user.
+const noteModifiableBySO = 10
+
+//Attribute cannot be changed once set to CK_TRUE. It becomes a read only attribute.
+const noteOnlyOnceCanBeSet = 11
+
+//Attribute cannot be changed once set to CK_FALSE. It becomes a read only attribute.
+const noteOnlyOnceCanBeClear = 12
+
 func init() {
 	registerCkaDesc("CommonObjectAttributes", []*CkaDesc{
 		{"", reflect.TypeOf(CK_OBJECT_CLASS(0)), "CKA_CLASS", p11api.CKA_CLASS, []note{1}, `Object class (type)`},
@@ -67,6 +103,38 @@ func init() {
 		{"", reflect.TypeOf(CK_ATTRIBUTE_PTR([]byte{})), "CKA_UNWRAP_TEMPLATE", p11api.CKA_UNWRAP_TEMPLATE, []note{}, ` For wrapping keys. The attribute template to apply to any keys unwrapped using this wrapping key. Any user supplied template is applied after this template as if the object has already been created. The number of attributes in the array is the ulValueLen component of the attribute divided by the size of CK_ATTRIBUTE.`},
 		{"", reflect.TypeOf(CK_BBOOL(false)), "CKA_ALWAYS_AUTHENTICATE", p11api.CKA_ALWAYS_AUTHENTICATE, []note{}, ` If CK_TRUE, the user has to supply the PIN for each use (sign or decrypt) with the key. Default is CK_FALSE.`},
 		{"", reflect.TypeOf(CK_Bytes([]byte{})), "CKA_PUBLIC_KEY_INFO", p11api.CKA_PUBLIC_KEY_INFO, []note{8}, ` DER-encoding of the SubjectPublicKeyInfo for the associated public key (MAY be empty; DEFAULT derived from the underlying private key data; MAY be manually set for specific key types; if set; MUST be consistent with the underlying private key data)`},
+	})
+
+	registerCkaDesc("RSAPublicKeyAttributes", []*CkaDesc{
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_MODULUS", p11api.CKA_MODULUS, []note{1, 4}, `Modulus n`},
+		{"", reflect.TypeOf(CK_ULONG(0)), "CKA_MODULUS_BITS", p11api.CKA_MODULUS_BITS, []note{2, 3}, `Length in bits of modulus n`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PUBLIC_EXPONENT", p11api.CKA_PUBLIC_EXPONENT, []note{1}, `Public exponent e`},
+	})
+
+	registerCkaDesc("RSAPrivateKeyAttributes", []*CkaDesc{
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_MODULUS", p11api.CKA_MODULUS, []note{1, 4, 6}, `Modulus n`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PUBLIC_EXPONENT", p11api.CKA_PUBLIC_EXPONENT, []note{1, 4, 6}, `Public exponent e`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PRIVATE_EXPONENT", p11api.CKA_PRIVATE_EXPONENT, []note{1, 4, 6, 7}, `Private exponent d`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PRIME_1", p11api.CKA_PRIME_1, []note{4, 6, 7}, `Prime p`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PRIME_2", p11api.CKA_PRIME_2, []note{4, 6, 7}, `Prime q`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_EXPONENT_1", p11api.CKA_EXPONENT_1, []note{4, 6, 7}, `Private exponent d modulo p-1`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_EXPONENT_2", p11api.CKA_EXPONENT_2, []note{4, 6, 7}, `Private exponent d modulo q-1`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_COEFFICIENT", p11api.CKA_COEFFICIENT, []note{4, 6, 7}, `CRT coefficient 1/q mod p`},
+	})
+
+	registerCkaDesc("ECCPublicKeyAttributes", []*CkaDesc{
+		{"", reflect.TypeOf(CK_Bytes([]byte{})), "CKA_EC_PARAMS", p11api.CKA_EC_PARAMS, []note{1, 3}, `DER-encoding of an ANSI X9.62 Parameters value`},
+		{"", reflect.TypeOf(CK_Bytes([]byte{})), "CKA_EC_POINT", p11api.CKA_EC_POINT, []note{1, 4}, `DER-encoding of ANSI X9.62 ECPoint value Q`},
+	})
+
+	registerCkaDesc("ECCPrivateKeyAttributes", []*CkaDesc{
+		{"", reflect.TypeOf(CK_Bytes([]byte{})), "CKA_EC_PARAMS", p11api.CKA_EC_PARAMS, []note{1, 4, 6}, `DER-encoding of an ANSI X9.62 Parameters value`},
+		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_VALUE", p11api.CKA_VALUE, []note{1, 4, 6, 7}, `ANSI X9.62 private value d`},
+	})
+
+	registerCkaDesc("GenericSecretKeyAttributes", []*CkaDesc{
+		{"", reflect.TypeOf(CK_Bytes([]byte{})), "CKA_VALUE", p11api.CKA_VALUE, []note{1, 4, 6, 7}, `Key value (arbitrary length)`},
+		{"", reflect.TypeOf(CK_ULONG(0)), "CKA_VALUE_LEN", p11api.CKA_VALUE_LEN, []note{2, 3}, `Length in bytes of key value`},
 	})
 }
 

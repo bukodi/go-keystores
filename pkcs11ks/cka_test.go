@@ -11,7 +11,7 @@ func TestCkaStructConverter(t *testing.T) {
 	p11KpA.PublicKeyAttributes.CKA_PRIVATE = true
 	p11KpA.PublicKeyAttributes.CKA_START_DATE = CK_DATE(time.Now())
 
-	p11Attrs, err := ckaStructToP11Attrs(p11KpA.PublicKeyAttributes)
+	p11Attrs, err := ckaStructToP11Attrs(p11KpA.PublicKeyAttributes, true)
 	if err != nil {
 		t.Error(err)
 	}

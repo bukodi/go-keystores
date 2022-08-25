@@ -14,9 +14,9 @@ import (
 	"testing"
 )
 
-//var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
+var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
 
-var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
+//var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
 
 //var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
 
@@ -101,7 +101,7 @@ func TestListPkcs11KeyStores(t *testing.T) {
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
 	err := keystores.EnsureOpen(p)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%#v", err)
 	}
 	defer keystores.MustClosed(p)
 

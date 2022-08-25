@@ -17,8 +17,10 @@ type Pkcs11KeyStore struct {
 	knownKeyPairs []*Pkcs11KeyPair
 	knownCerts    []*Pkcs11KeyPair
 
-	knownPubKeys             []*CommonPublicKeyAttributes
-	knownPrivKeys            []*CommonPrivateKeyAttributes
+	knownRSAPubKeys          []*RSAPublicKeyAttributes
+	knownRSAPrivKeys         []*RSAPrivateKeyAttributes
+	knownECPubKeys           []*ECCPublicKeyAttributes
+	knownECPrivKeys          []*ECCPrivateKeyAttributes
 	knownOtherStorageObjects []*CommonStorageObjectAttributes
 }
 

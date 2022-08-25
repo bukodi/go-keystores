@@ -38,43 +38,93 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (err error) {
 		return keystores.ErrorHandler(err)
 	}
 
-	ks.knownPubKeys = make([]*CommonPublicKeyAttributes, 0)
-	ks.knownPrivKeys = make([]*CommonPrivateKeyAttributes, 0)
 	errs := make([]error, 0)
 	for _, hObj := range hObjs {
-		classAttr := []*p11api.Attribute{
-			&p11api.Attribute{p11api.CKA_CLASS, nil},
-		}
-		classAttr, err = ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, classAttr)
-		if err != nil {
+		var objClass uint
+		if classAttr, err := ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, []*p11api.Attribute{
+			{p11api.CKA_CLASS, nil},
+		}); err != nil {
 			errs = append(errs, keystores.ErrorHandler(err))
 			continue
-		}
-		objClass, err := bytesTo_CK_OBJECT_CLASS(classAttr[0].Value)
-		if err != nil {
+		} else if objClassTyped, err := bytesTo_CK_OBJECT_CLASS(classAttr[0].Value); err != nil {
 			errs = append(errs, keystores.ErrorHandler(err))
 			continue
+		} else {
+			objClass = uint(objClassTyped)
 		}
-		switch uint(objClass) {
-		case p11api.CKO_PUBLIC_KEY:
-			var pubKey CommonPublicKeyAttributes
-			if err := getP11Attributes(ks, hObj, &pubKey); err != nil {
+
+		var keyType uint
+		if uint(objClass) == p11api.CKO_PUBLIC_KEY || uint(objClass) == p11api.CKO_PRIVATE_KEY {
+			if classAttr, err := ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, []*p11api.Attribute{
+				{p11api.CKA_KEY_TYPE, nil},
+			}); err != nil {
+				errs = append(errs, keystores.ErrorHandler(err))
+				continue
+			} else if keyTypeTyped, err := bytesTo_CK_KEY_TYPE(classAttr[0].Value); err != nil {
 				errs = append(errs, keystores.ErrorHandler(err))
 				continue
 			} else {
-				ks.knownPubKeys = append(ks.knownPubKeys, &pubKey)
+				keyType = uint(keyTypeTyped)
 			}
-		case p11api.CKO_PRIVATE_KEY:
-			var privKey CommonPrivateKeyAttributes
-			if err := getP11Attributes(ks, hObj, &privKey); err != nil {
+		}
+
+		var skipSensitiveAttrs bool
+		if uint(objClass) == p11api.CKO_PRIVATE_KEY || uint(objClass) == p11api.CKO_SECRET_KEY {
+			if attrs, err := ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, []*p11api.Attribute{
+				{p11api.CKA_SENSITIVE, nil},
+				{p11api.CKA_EXTRACTABLE, nil},
+			}); err != nil {
 				errs = append(errs, keystores.ErrorHandler(err))
 				continue
 			} else {
-				ks.knownPrivKeys = append(ks.knownPrivKeys, &privKey)
+				var sensitive, extractable CK_BBOOL
+				if sensitive, err = bytesTo_CK_BBOOL(attrs[0].Value); err != nil {
+					errs = append(errs, keystores.ErrorHandler(err))
+					continue
+				}
+				if extractable, err = bytesTo_CK_BBOOL(attrs[1].Value); err != nil {
+					errs = append(errs, keystores.ErrorHandler(err))
+					continue
+				}
+				skipSensitiveAttrs = bool(sensitive) && !bool(extractable)
 			}
-		default:
+		}
+
+		if objClass == p11api.CKO_PUBLIC_KEY && keyType == p11api.CKK_RSA {
+			var pubKey RSAPublicKeyAttributes
+			if err := getP11Attributes(ks, hObj, &pubKey, skipSensitiveAttrs); err != nil {
+				errs = append(errs, keystores.ErrorHandler(err))
+				continue
+			} else {
+				ks.knownRSAPubKeys = append(ks.knownRSAPubKeys, &pubKey)
+			}
+		} else if objClass == p11api.CKO_PRIVATE_KEY && keyType == p11api.CKK_RSA {
+			var privKey RSAPrivateKeyAttributes
+			if err := getP11Attributes(ks, hObj, &privKey, skipSensitiveAttrs); err != nil {
+				errs = append(errs, keystores.ErrorHandler(err))
+				continue
+			} else {
+				ks.knownRSAPrivKeys = append(ks.knownRSAPrivKeys, &privKey)
+			}
+		} else if objClass == p11api.CKO_PUBLIC_KEY && keyType == p11api.CKK_EC {
+			var pubKey ECCPublicKeyAttributes
+			if err := getP11Attributes(ks, hObj, &pubKey, skipSensitiveAttrs); err != nil {
+				errs = append(errs, keystores.ErrorHandler(err))
+				continue
+			} else {
+				ks.knownECPubKeys = append(ks.knownECPubKeys, &pubKey)
+			}
+		} else if objClass == p11api.CKO_PRIVATE_KEY && keyType == p11api.CKK_EC {
+			var privKey ECCPrivateKeyAttributes
+			if err := getP11Attributes(ks, hObj, &privKey, skipSensitiveAttrs); err != nil {
+				errs = append(errs, keystores.ErrorHandler(err))
+				continue
+			} else {
+				ks.knownECPrivKeys = append(ks.knownECPrivKeys, &privKey)
+			}
+		} else {
 			var otherObj CommonStorageObjectAttributes
-			if err := getP11Attributes(ks, hObj, &otherObj); err != nil {
+			if err := getP11Attributes(ks, hObj, &otherObj, skipSensitiveAttrs); err != nil {
 				errs = append(errs, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -96,8 +146,8 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (err error) {
 	}
 }
 
-func getP11Attributes[T CkaStruct](ks *Pkcs11KeyStore, hObj p11api.ObjectHandle, ckaStruct T) error {
-	attrTemplate, err := ckaStructToP11Attrs(ckaStruct)
+func getP11Attributes[T CkaStruct](ks *Pkcs11KeyStore, hObj p11api.ObjectHandle, ckaStruct T, skipSensitiveAttrs bool) error {
+	attrTemplate, err := ckaStructToP11Attrs(ckaStruct, skipSensitiveAttrs)
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
