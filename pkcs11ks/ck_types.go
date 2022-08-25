@@ -73,10 +73,14 @@ func bytesFrom_CK_DATE(a CK_DATE) []byte {
 }
 
 func bytesTo_CK_KEY_TYPE(bytes []byte) (CK_KEY_TYPE, error) {
-	if len(bytes) != 4 {
-		return 0, fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
+	switch len(bytes) {
+	case 4:
+		return CK_KEY_TYPE(binary.LittleEndian.Uint32(bytes)), nil
+	case 8:
+		return CK_KEY_TYPE(binary.LittleEndian.Uint64(bytes)), nil
+	default:
+		return 0, fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
 	}
-	return CK_KEY_TYPE(binary.LittleEndian.Uint32(bytes)), nil
 }
 
 func bytesFrom_CK_KEY_TYPE(a CK_KEY_TYPE) []byte {

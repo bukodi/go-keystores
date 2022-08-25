@@ -38,11 +38,13 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (err error) {
 		return keystores.ErrorHandler(err)
 	}
 
-	ks.knownPubKeys = make(map[keystores.KeyPairId]*CommonPublicKeyAttributes, 0)
-	ks.knownPrivKeys = make(map[keystores.KeyPairId]*CommonPrivateKeyAttributes, 0)
+	ks.knownPubKeys = make([]*CommonPublicKeyAttributes, 0)
+	ks.knownPrivKeys = make([]*CommonPrivateKeyAttributes, 0)
 	errs := make([]error, 0)
 	for _, hObj := range hObjs {
-		classAttr := []*p11api.Attribute{&p11api.Attribute{p11api.CKA_CLASS, nil}}
+		classAttr := []*p11api.Attribute{
+			&p11api.Attribute{p11api.CKA_CLASS, nil},
+		}
 		classAttr, err = ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, classAttr)
 		if err != nil {
 			errs = append(errs, keystores.ErrorHandler(err))
@@ -59,28 +61,16 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (err error) {
 			if err := getP11Attributes(ks, hObj, &pubKey); err != nil {
 				errs = append(errs, keystores.ErrorHandler(err))
 				continue
-			} else if id, err := calculateKeyPairId(pubKey.CKA_PUBLIC_KEY_INFO); err != nil {
-				errs = append(errs, keystores.ErrorHandler(err))
-				continue
-			} else if otherPubKey := ks.knownPubKeys[id]; otherPubKey != nil {
-				errs = append(errs, keystores.ErrorHandler(fmt.Errorf("non unique public key id")))
-				continue
 			} else {
-				ks.knownPubKeys[id] = &pubKey
+				ks.knownPubKeys = append(ks.knownPubKeys, &pubKey)
 			}
 		case p11api.CKO_PRIVATE_KEY:
 			var privKey CommonPrivateKeyAttributes
 			if err := getP11Attributes(ks, hObj, &privKey); err != nil {
 				errs = append(errs, keystores.ErrorHandler(err))
 				continue
-			} else if id, err := calculateKeyPairId(privKey.CKA_PUBLIC_KEY_INFO); err != nil {
-				errs = append(errs, keystores.ErrorHandler(err))
-				continue
-			} else if otherPubKey := ks.knownPubKeys[id]; otherPubKey != nil {
-				errs = append(errs, keystores.ErrorHandler(fmt.Errorf("non unique public key id")))
-				continue
 			} else {
-				ks.knownPrivKeys[id] = &privKey
+				ks.knownPrivKeys = append(ks.knownPrivKeys, &privKey)
 			}
 		default:
 			var otherObj CommonStorageObjectAttributes

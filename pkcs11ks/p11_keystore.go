@@ -17,8 +17,8 @@ type Pkcs11KeyStore struct {
 	knownKeyPairs []*Pkcs11KeyPair
 	knownCerts    []*Pkcs11KeyPair
 
-	knownPubKeys             map[keystores.KeyPairId]*CommonPublicKeyAttributes
-	knownPrivKeys            map[keystores.KeyPairId]*CommonPrivateKeyAttributes
+	knownPubKeys             []*CommonPublicKeyAttributes
+	knownPrivKeys            []*CommonPrivateKeyAttributes
 	knownOtherStorageObjects []*CommonStorageObjectAttributes
 }
 

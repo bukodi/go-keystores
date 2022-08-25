@@ -11,5 +11,5 @@ func init() {
 }
 
 func defaultErrorHandler(err error, context ...interface{}) error {
-	return utils.WithStack(err)
+	return utils.WithStackSkip(2, err)
 }

@@ -95,6 +95,8 @@ func TestSoftHSM(t *testing.T) {
 }
 
 func TestListPkcs11KeyStores(t *testing.T) {
+	t.Logf("\tp11api.CK_UNAVAILABLE_INFORMATION = %x", p11api.CK_UNAVAILABLE_INFORMATION)
+
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
 	err := keystores.EnsureOpen(p)
