@@ -63,6 +63,9 @@ func WithStack(err error) error {
 }
 
 func WithStackSkip(skip int, err error) error {
+	if err == nil {
+		return nil
+	}
 	pcs := make([]uintptr, 32)
 	count := runtime.Callers(skip+1, pcs)
 	ws := withStack{
