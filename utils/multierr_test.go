@@ -15,6 +15,7 @@ limitations under the License.
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -93,4 +94,17 @@ func TestMultiErr(t *testing.T) {
 	var eErr2 *excludedErr
 	require.False(t, errors.As(merr, &eErr2))
 	require.Nil(t, eErr2)
+}
+
+func TestCollectErr(t *testing.T) {
+	var err error
+	err = CollectError(err, nil)
+	require.Nil(t, err)
+	err = CollectError(err, fmt.Errorf("first"))
+	require.Equal(t, "first", err.Error())
+	err = CollectError(err, fmt.Errorf("second"))
+	require.IsType(t, &(MultiErr{}), err)
+	err = CollectError(err, fmt.Errorf("third"))
+	require.IsType(t, &(MultiErr{}), err)
+	t.Logf("Collected multi err: %+v", err)
 }

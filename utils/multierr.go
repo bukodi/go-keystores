@@ -27,6 +27,30 @@ type MultiErr struct {
 	errors []error
 }
 
+func CollectError(currentError error, newError error) error {
+	if newError == nil {
+		return currentError
+	}
+	if currentError == nil {
+		return newError
+	}
+	var currentMultiErr *MultiErr
+	if multiErr, ok := currentError.(*MultiErr); ok {
+		currentMultiErr = multiErr
+	} else {
+		currentMultiErr = NewMultiErr()
+		currentMultiErr.Append(currentError)
+	}
+	if multiErr, ok := newError.(*MultiErr); ok {
+		for _, e := range multiErr.errors {
+			currentMultiErr.Append(e)
+		}
+	} else {
+		currentMultiErr.Append(newError)
+	}
+	return currentMultiErr
+}
+
 func NewMultiErr() *MultiErr {
 	return &MultiErr{}
 }

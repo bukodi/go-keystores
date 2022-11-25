@@ -2,6 +2,7 @@ package pkcs11ks
 
 import (
 	"crypto/x509"
+	"errors"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
 	"github.com/rainycape/dl"
@@ -171,6 +172,21 @@ func TestRsaGenSignVerify(t *testing.T) {
 	}()
 
 	dumpKeys(ks, t)
+	var kpTest *Pkcs11KeyPair
+	kpSlice, err := ks.KeyPairs()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kp := range kpSlice {
+		if pkcs11kp, ok := kp.(*Pkcs11KeyPair); ok {
+			if pkcs11kp.Label() == "testKey" {
+				kpTest = pkcs11kp
+			}
+		}
+	}
+	if kpTest == nil {
+		t.Fatal(errors.New("testKp not found"))
+	}
 
 }
 
