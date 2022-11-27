@@ -7,11 +7,11 @@ import (
 
 func TestCkaStructConverter(t *testing.T) {
 	var p11KpA Pkcs11KeyPair
-	p11KpA.PublicKeyAttributes = &CommonPublicKeyAttributes{}
-	p11KpA.PublicKeyAttributes.CKA_PRIVATE = true
-	p11KpA.PublicKeyAttributes.CKA_START_DATE = CK_DATE(time.Now())
+	p11KpA.rsaPubKeyAttrs = &RSAPublicKeyAttributes{}
+	p11KpA.rsaPubKeyAttrs.CKA_PRIVATE = true
+	p11KpA.rsaPubKeyAttrs.CKA_START_DATE = CK_DATE(time.Now())
 
-	p11Attrs, err := ckaStructToP11Attrs(p11KpA.PublicKeyAttributes, true)
+	p11Attrs, err := ckaStructToP11Attrs(p11KpA.rsaPubKeyAttrs, true)
 	if err != nil {
 		t.Error(err)
 	}
@@ -20,9 +20,9 @@ func TestCkaStructConverter(t *testing.T) {
 	}
 
 	var p11KpB Pkcs11KeyPair
-	err = ckaStructFromP11Attrs(p11KpB.PublicKeyAttributes, p11Attrs)
+	err = ckaStructFromP11Attrs(p11KpB.rsaPubKeyAttrs, p11Attrs)
 	if err != nil {
 		t.Error(err)
 	}
-	t.Logf("Second struct : %+v", p11KpB.PublicKeyAttributes)
+	t.Logf("Second struct : %+v", p11KpB.rsaPubKeyAttrs)
 }

@@ -178,10 +178,8 @@ func TestRsaGenSignVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, kp := range kpSlice {
-		if pkcs11kp, ok := kp.(*Pkcs11KeyPair); ok {
-			if pkcs11kp.Label() == "testKey" {
-				kpTest = pkcs11kp
-			}
+		if kp.Label() == "testKey" {
+			kpTest = kp.(*Pkcs11KeyPair)
 		}
 	}
 	if kpTest == nil {

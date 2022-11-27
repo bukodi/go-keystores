@@ -1,9 +1,10 @@
 package pkcs11ks
 
 import (
+	"bytes"
 	"crypto/x509"
-	"fmt"
 	"github.com/bukodi/go-keystores"
+	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
 )
 
@@ -14,13 +15,10 @@ type Pkcs11KeyStore struct {
 	slotInfo  *p11api.SlotInfo
 	hSession  p11api.SessionHandle
 
-	knownKeyPairs []*Pkcs11KeyPair
-	knownCerts    []*Pkcs11KeyPair
-
 	knownRSAPubKeys          []*RSAPublicKeyAttributes
 	knownRSAPrivKeys         []*RSAPrivateKeyAttributes
-	knownECPubKeys           []*ECCPublicKeyAttributes
-	knownECPrivKeys          []*ECCPrivateKeyAttributes
+	knownECCPubKeys          []*ECCPublicKeyAttributes
+	knownECCPrivKeys         []*ECCPrivateKeyAttributes
 	knownOtherStorageObjects []*CommonStorageObjectAttributes
 }
 
@@ -89,53 +87,51 @@ func (ks *Pkcs11KeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorit
 	return algs
 }
 
-func (ks *Pkcs11KeyStore) KeyPairs() ([]keystores.KeyPair, error) {
+func (ks *Pkcs11KeyStore) KeyPairs() (keyPairs []keystores.KeyPair, retErr error) {
 	var reload = true // Add this var to argument
-	if ks.knownKeyPairs == nil || reload {
+	if (ks.knownRSAPrivKeys == nil) && (ks.knownECCPrivKeys == nil) || reload {
 		err := ks.Reload()
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
 	}
 
-	retArray := make([]keystores.KeyPair, len(ks.knownKeyPairs))
-	for i, kp := range ks.knownKeyPairs {
-		retArray[i] = kp
-	}
-	return retArray, nil
-}
-
-func (ks *Pkcs11KeyStore) readKeypair(hObj p11api.ObjectHandle) (*Pkcs11KeyPair, error) {
-	publicKeyTemplate := []*p11api.Attribute{
-		p11api.NewAttribute(p11api.CKA_CLASS, nil),
-		p11api.NewAttribute(p11api.CKA_KEY_TYPE, nil),
-		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, nil),
-		p11api.NewAttribute(p11api.CKA_MODULUS, nil),
-		p11api.NewAttribute(p11api.CKA_LABEL, nil),
-	}
-	attrs, err := ks.provider.pkcs11Ctx.GetAttributeValue(ks.hSession, hObj, publicKeyTemplate)
-	if err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-
-	kp := Pkcs11KeyPair{}
-
-	for _, attr := range attrs {
-		switch attr.Type {
-		case p11api.CKA_CLASS:
-		case p11api.CKA_KEY_TYPE:
-		case p11api.CKA_PUBLIC_EXPONENT:
-		case p11api.CKA_MODULUS_BITS:
-		case p11api.CKA_MODULUS:
-		case p11api.CKA_LABEL:
-			kp.label = string(attr.Value)
-		default:
-			fmt.Printf("Unknown attribute: %d", attr.Type)
+	retArray := make([]keystores.KeyPair, 0)
+	for _, privKeyAttrs := range ks.knownRSAPrivKeys {
+		// Find matching pub key
+		privIdBytes := privKeyAttrs.CKA_ID
+		var pubKeyAttrs *RSAPublicKeyAttributes
+		for _, p11RSAPubKey := range ks.knownRSAPubKeys {
+			pubIdBytes := p11RSAPubKey.CommonKeyAttributes.CKA_ID
+			if bytes.Equal(privIdBytes, pubIdBytes) {
+				pubKeyAttrs = p11RSAPubKey
+			}
+		}
+		// Create then KeyPair object
+		if kp, err := ks.newRSAKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		} else {
+			retArray = append(retArray, kp)
 		}
 	}
-
-	return &kp, nil
+	for _, privKeyAttrs := range ks.knownECCPrivKeys {
+		// Find matching pub key
+		privIdBytes := privKeyAttrs.CKA_ID
+		var pubKeyAttrs *ECCPublicKeyAttributes
+		for _, pubKeyObj := range ks.knownECCPubKeys {
+			pubIdBytes := pubKeyObj.CommonKeyAttributes.CKA_ID
+			if bytes.Equal(privIdBytes, pubIdBytes) {
+				pubKeyAttrs = pubKeyObj
+			}
+		}
+		// Create then KeyPair object
+		if kp, err := ks.newECCKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		} else {
+			retArray = append(retArray, kp)
+		}
+	}
+	return retArray, nil
 }
 
 func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
@@ -165,26 +161,68 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 
 	mechs := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
 
-	pbk, pvk, err := ks.provider.pkcs11Ctx.GenerateKeyPair(ks.hSession,
+	hPub, hPriv, err := ks.provider.pkcs11Ctx.GenerateKeyPair(ks.hSession,
 		mechs,
 		publicKeyTemplate, privateKeyTemplate)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
-	kp := Pkcs11KeyPair{
-		keySore:  ks,
-		hPubKey:  pbk,
-		hPrivKey: pvk,
-	}
-	err = kp.initFields()
-	if err != nil {
-		kp.Destroy()
+	var privKeyAttrs RSAPrivateKeyAttributes
+	var pubKeyAttrs RSAPublicKeyAttributes
+	if err := getP11Attributes(ks, hPriv, &privKeyAttrs, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	return &kp, nil
+	if err := getP11Attributes(ks, hPub, &pubKeyAttrs, true); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	kp, err := ks.newRSAKeyPair(&privKeyAttrs, &pubKeyAttrs)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	return kp, nil
 }
 
 func (ks *Pkcs11KeyStore) ImportKeyPair(der []byte) (kp keystores.KeyPair, err error) {
 	panic("implement me")
+}
+
+func (ks *Pkcs11KeyStore) destroyObject(class CK_OBJECT_CLASS, id CK_Bytes, label CK_String) (objDeleted int, retErr error) {
+	if err := keystores.EnsureOpen(ks); err != nil {
+		return 0, keystores.ErrorHandler(err, ks)
+	}
+
+	// Query all object handle
+	attrs := make([]*p11api.Attribute, 0)
+	if class != 0 {
+		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_CLASS, Value: bytesFrom_CK_OBJECT_CLASS(class)})
+	}
+	if id != nil {
+		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_ID, Value: bytesFrom_CK_Bytes(id)})
+	}
+	if label != "" {
+		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_LABEL, Value: bytesFrom_CK_String(label)})
+	}
+
+	if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, attrs); err != nil {
+		return 0, keystores.ErrorHandler(err)
+	}
+	defer func() {
+		err := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
+		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+	}()
+
+	// Delete objects
+	hObjs, _, err := ks.provider.pkcs11Ctx.FindObjects(ks.hSession, 100)
+	if err != nil {
+		return 0, keystores.ErrorHandler(err)
+	}
+	for _, hObj := range hObjs {
+		if err := ks.provider.pkcs11Ctx.DestroyObject(ks.hSession, hObj); err != nil {
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, ks))
+		} else {
+			objDeleted++
+		}
+	}
+	return objDeleted, retErr
 }

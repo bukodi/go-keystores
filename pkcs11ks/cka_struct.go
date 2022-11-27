@@ -220,6 +220,3 @@ func readAttrs(p11attrs []*p11api.Attribute, destStuct any, attrDescList []CkaDe
 	}
 	return nil
 }
-
-type RSAPublicKeyObjectAttributes struct {
-}
