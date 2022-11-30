@@ -106,20 +106,20 @@ func init() {
 	})
 
 	registerCkaDesc("RSAPublicKeyAttributes", []*CkaDesc{
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_MODULUS", p11api.CKA_MODULUS, []note{1, 4}, `Modulus n`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_MODULUS", p11api.CKA_MODULUS, []note{1, 4}, `Modulus n`},
 		{"", reflect.TypeOf(CK_ULONG(0)), "CKA_MODULUS_BITS", p11api.CKA_MODULUS_BITS, []note{2, 3}, `Length in bits of modulus n`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PUBLIC_EXPONENT", p11api.CKA_PUBLIC_EXPONENT, []note{1}, `Public exponent e`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_PUBLIC_EXPONENT", p11api.CKA_PUBLIC_EXPONENT, []note{1}, `Public exponent e`},
 	})
 
 	registerCkaDesc("RSAPrivateKeyAttributes", []*CkaDesc{
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_MODULUS", p11api.CKA_MODULUS, []note{1, 4, 6}, `Modulus n`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PUBLIC_EXPONENT", p11api.CKA_PUBLIC_EXPONENT, []note{1, 4, 6}, `Public exponent e`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PRIVATE_EXPONENT", p11api.CKA_PRIVATE_EXPONENT, []note{1, 4, 6, 7}, `Private exponent d`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PRIME_1", p11api.CKA_PRIME_1, []note{4, 6, 7}, `Prime p`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_PRIME_2", p11api.CKA_PRIME_2, []note{4, 6, 7}, `Prime q`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_EXPONENT_1", p11api.CKA_EXPONENT_1, []note{4, 6, 7}, `Private exponent d modulo p-1`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_EXPONENT_2", p11api.CKA_EXPONENT_2, []note{4, 6, 7}, `Private exponent d modulo q-1`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_COEFFICIENT", p11api.CKA_COEFFICIENT, []note{4, 6, 7}, `CRT coefficient 1/q mod p`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_MODULUS", p11api.CKA_MODULUS, []note{1, 4, 6}, `Modulus n`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_PUBLIC_EXPONENT", p11api.CKA_PUBLIC_EXPONENT, []note{1, 4, 6}, `Public exponent e`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_PRIVATE_EXPONENT", p11api.CKA_PRIVATE_EXPONENT, []note{1, 4, 6, 7}, `Private exponent d`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_PRIME_1", p11api.CKA_PRIME_1, []note{4, 6, 7}, `Prime p`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_PRIME_2", p11api.CKA_PRIME_2, []note{4, 6, 7}, `Prime q`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_EXPONENT_1", p11api.CKA_EXPONENT_1, []note{4, 6, 7}, `Private exponent d modulo p-1`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_EXPONENT_2", p11api.CKA_EXPONENT_2, []note{4, 6, 7}, `Private exponent d modulo q-1`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_COEFFICIENT", p11api.CKA_COEFFICIENT, []note{4, 6, 7}, `CRT coefficient 1/q mod p`},
 	})
 
 	registerCkaDesc("ECCPublicKeyAttributes", []*CkaDesc{
@@ -129,7 +129,7 @@ func init() {
 
 	registerCkaDesc("ECCPrivateKeyAttributes", []*CkaDesc{
 		{"", reflect.TypeOf(CK_Bytes([]byte{})), "CKA_EC_PARAMS", p11api.CKA_EC_PARAMS, []note{1, 4, 6}, `DER-encoding of an ANSI X9.62 Parameters value`},
-		{"", reflect.TypeOf(CK_BigInt([]byte{})), "CKA_VALUE", p11api.CKA_VALUE, []note{1, 4, 6, 7}, `ANSI X9.62 private value d`},
+		{"", reflect.TypeOf(CK_BigInt(nil)), "CKA_VALUE", p11api.CKA_VALUE, []note{1, 4, 6, 7}, `ANSI X9.62 private value d`},
 	})
 
 	registerCkaDesc("GenericSecretKeyAttributes", []*CkaDesc{

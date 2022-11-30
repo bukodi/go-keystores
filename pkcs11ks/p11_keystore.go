@@ -139,13 +139,10 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 	kuSign := (opts.KeyUsage & (x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature)) != 0
 	publicKeyTemplate := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
-		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_RSA),
 		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
 		p11api.NewAttribute(p11api.CKA_VERIFY, kuSign),
 		p11api.NewAttribute(p11api.CKA_ENCRYPT, opts.KeyUsage&x509.KeyUsageDataEncipherment != 0),
 		p11api.NewAttribute(p11api.CKA_WRAP, opts.KeyUsage&x509.KeyUsageKeyEncipherment != 0),
-		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
-		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.RSAKeyLength),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
 	}
 	privateKeyTemplate := []*p11api.Attribute{
@@ -159,28 +156,15 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, opts.Exportable),
 	}
 
-	mechs := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
-
-	hPub, hPriv, err := ks.provider.pkcs11Ctx.GenerateKeyPair(ks.hSession,
-		mechs,
-		publicKeyTemplate, privateKeyTemplate)
-	if err != nil {
-		return nil, keystores.ErrorHandler(err)
+	if opts.Algorithm.RSAKeyLength > 0 {
+		kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
+		return kp, keystores.ErrorHandler(err, ks)
+	} else if opts.Algorithm.ECCCurve != nil {
+		kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
+		return kp, keystores.ErrorHandler(err, ks)
+	} else {
+		return nil, keystores.ErrorHandler(keystores.ErrOperationNotSupportedByProvider, ks)
 	}
-
-	var privKeyAttrs RSAPrivateKeyAttributes
-	var pubKeyAttrs RSAPublicKeyAttributes
-	if err := getP11Attributes(ks, hPriv, &privKeyAttrs, true); err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-	if err := getP11Attributes(ks, hPub, &pubKeyAttrs, true); err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-	kp, err := ks.newRSAKeyPair(&privKeyAttrs, &pubKeyAttrs)
-	if err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-	return kp, nil
 }
 
 func (ks *Pkcs11KeyStore) ImportKeyPair(der []byte) (kp keystores.KeyPair, err error) {

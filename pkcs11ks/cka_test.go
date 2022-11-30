@@ -1,6 +1,7 @@
 package pkcs11ks
 
 import (
+	"math/big"
 	"testing"
 	"time"
 )
@@ -10,6 +11,7 @@ func TestCkaStructConverter(t *testing.T) {
 	p11KpA.rsaPubKeyAttrs = &RSAPublicKeyAttributes{}
 	p11KpA.rsaPubKeyAttrs.CKA_PRIVATE = true
 	p11KpA.rsaPubKeyAttrs.CKA_START_DATE = CK_DATE(time.Now())
+	p11KpA.rsaPubKeyAttrs.CKA_MODULUS = big.NewInt(42)
 
 	p11Attrs, err := ckaStructToP11Attrs(p11KpA.rsaPubKeyAttrs, true)
 	if err != nil {

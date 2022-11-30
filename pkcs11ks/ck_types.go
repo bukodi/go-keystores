@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
+	"math/big"
 	"reflect"
 	"time"
 )
@@ -19,7 +20,7 @@ type CK_ULONG uint32
 type CK_DATE time.Time
 type CK_KEY_TYPE CK_ULONG
 type CK_Bytes []byte
-type CK_BigInt CK_Bytes
+type CK_BigInt *big.Int
 type CK_String string
 type CK_OBJECT_CLASS CK_ULONG
 type CK_MECHANISM_TYPE CK_ULONG
@@ -71,6 +72,16 @@ func bytesTo_CK_DATE(bytes []byte) (CK_DATE, error) {
 func bytesFrom_CK_DATE(a CK_DATE) []byte {
 	str := time.Time(a).Format("20060102")
 	return []byte(str)
+}
+
+func bytesTo_CK_BigInt(bytes []byte) (CK_BigInt, error) {
+	bi := big.NewInt(0)
+	bi.SetBytes(bytes)
+	return CK_BigInt(bi), nil
+}
+
+func bytesFrom_CK_BigInt(a CK_BigInt) []byte {
+	return (*big.Int)(a).Bytes()
 }
 
 func bytesTo_CK_KEY_TYPE(bytes []byte) (CK_KEY_TYPE, error) {
@@ -230,12 +241,17 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		return nil
 	case reflect.TypeOf(CK_KEY_TYPE(0)):
 		return uint32or64ValueFromBytes(bytes, v)
-	case reflect.TypeOf(CK_Bytes{}), reflect.TypeOf(CK_BigInt{}):
+	case reflect.TypeOf(CK_Bytes{}):
 		x := make([]byte, len(bytes))
 		for i, b := range bytes {
 			(x)[i] = b
 		}
 		v.SetBytes(x)
+		return nil
+	case reflect.TypeOf(CK_BigInt(nil)):
+		bi := big.NewInt(0)
+		bi.SetBytes(bytes)
+		v.Set(reflect.ValueOf(CK_BigInt(bi)))
 		return nil
 	case reflect.TypeOf(CK_String("")):
 		buff := make([]byte, len(bytes))
@@ -296,13 +312,23 @@ func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
 		bytes := []byte{0, 0, 0, 0}
 		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
 		return bytes, nil
-	case reflect.TypeOf(CK_Bytes{}), reflect.TypeOf(CK_BigInt{}):
+	case reflect.TypeOf(CK_Bytes{}):
 		a := v.Bytes()
 		bytes := make([]byte, len(a))
 		for i, b := range a {
 			bytes[i] = b
 		}
 		return bytes, nil
+	case reflect.TypeOf(CK_BigInt(nil)):
+		var bi = big.NewInt(0)
+		vbi := reflect.ValueOf(bi)
+		if v.IsNil() {
+			return []byte{}, nil
+		}
+		vbi.Elem().Set(v.Elem())
+		bytes := (*big.Int)(bi).Bytes()
+		return bytes, nil
+
 	case reflect.TypeOf(CK_String("")):
 		aAsBytes := []byte(v.String())
 		bytes := make([]byte, len(aAsBytes))
