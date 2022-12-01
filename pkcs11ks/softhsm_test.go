@@ -167,6 +167,7 @@ func TestRsaGenSignVerify(t *testing.T) {
 	defer func() {
 		err = kp.Destroy()
 		if err != nil {
+			dumpKeys(ks, t)
 			t.Fatal(err)
 		}
 	}()
@@ -184,6 +185,8 @@ func TestRsaGenSignVerify(t *testing.T) {
 	}
 	if kpTest == nil {
 		t.Fatal(errors.New("testKp not found"))
+	} else {
+		t.Logf("Test key found: %#v", kpTest)
 	}
 
 }
@@ -197,7 +200,8 @@ func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
 		t.Logf("No key pairs.")
 	} else {
 		for i, kp := range kps {
-			t.Logf("%d.: Label: %s, Id: %s", i, kp.Label(), kp.Id())
+			p11Kp := kp.(*Pkcs11KeyPair)
+			t.Logf("%d.: Label: %s, CKA_ID: %v, Id: %s", i, kp.Label(), p11Kp.rsaPrivKeyAttrs.CKA_ID, kp.Id())
 		}
 	}
 }

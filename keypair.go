@@ -7,7 +7,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 )
 
@@ -72,6 +71,6 @@ func GenerateKeyPairIdFromPubKey(pubKey crypto.PublicKey) (KeyPairId, error) {
 		return "", ErrorHandler(err)
 	}
 	sum := sha256.Sum256(pkcs8DerBytes)
-	id := fmt.Sprintf("%.02x", sum)
+	id := hex.EncodeToString(sum[:])
 	return KeyPairId(id), nil
 }

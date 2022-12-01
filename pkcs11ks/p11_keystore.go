@@ -160,8 +160,9 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
 		return kp, keystores.ErrorHandler(err, ks)
 	} else if opts.Algorithm.ECCCurve != nil {
-		kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
-		return kp, keystores.ErrorHandler(err, ks)
+		//kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
+		//return kp, keystores.ErrorHandler(err, ks)
+		return nil, keystores.ErrorHandler(keystores.ErrOperationNotSupportedByProvider, ks)
 	} else {
 		return nil, keystores.ErrorHandler(keystores.ErrOperationNotSupportedByProvider, ks)
 	}
@@ -179,7 +180,7 @@ func (ks *Pkcs11KeyStore) destroyObject(class CK_OBJECT_CLASS, id CK_Bytes, labe
 	// Query all object handle
 	attrs := make([]*p11api.Attribute, 0)
 	if class != 0 {
-		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_CLASS, Value: bytesFrom_CK_OBJECT_CLASS(class)})
+		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_CLASS, Value: bytesFrom_CK_OBJECT_CLASS(class, ks.provider.ckULONGis32bit)})
 	}
 	if id != nil {
 		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_ID, Value: bytesFrom_CK_Bytes(id)})

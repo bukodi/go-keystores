@@ -107,7 +107,7 @@ type GenericSecretKeyAttributes struct {
 	CKA_VALUE_LEN CK_ULONG // Length in bytes of key value
 }
 
-func ckaStructToP11Attrs[T CkaStruct](ckaStruct T, skipSensitiveAttrs bool) ([]*p11api.Attribute, error) {
+func ckaStructToP11Attrs[T CkaStruct](ckaStruct T, ckULONGIs32bit bool, skipSensitiveAttrs bool) ([]*p11api.Attribute, error) {
 	p11Attrs := make([]*p11api.Attribute, 0)
 
 	pv := reflect.ValueOf(ckaStruct)
@@ -120,7 +120,7 @@ func ckaStructToP11Attrs[T CkaStruct](ckaStruct T, skipSensitiveAttrs bool) ([]*
 			}
 		}
 
-		bytes, err := ckValueWriteToBytes(v)
+		bytes, err := ckValueWriteToBytes(v, ckULONGIs32bit)
 		if err != nil {
 			return keystores.ErrorHandler(fmt.Errorf("can't read %s to bytes: %w", ckaDesc.name, err))
 		}
@@ -134,7 +134,7 @@ func ckaStructToP11Attrs[T CkaStruct](ckaStruct T, skipSensitiveAttrs bool) ([]*
 	return p11Attrs, err
 }
 
-func ckaStructFromP11Attrs[T CkaStruct](ckaStruct T, p11Attrs []*p11api.Attribute) error {
+func ckaStructFromP11Attrs[T CkaStruct](ckaStruct T, p11Attrs []*p11api.Attribute, ckULONGIs32bit bool) error {
 	unprocessedStructFields := make([]*CkaDesc, 0)
 	p11AttrsByCode := make(map[uint]*p11api.Attribute)
 	for _, a := range p11Attrs {
@@ -151,13 +151,12 @@ func ckaStructFromP11Attrs[T CkaStruct](ckaStruct T, p11Attrs []*p11api.Attribut
 			delete(p11AttrsByCode, ckaDesc.code)
 		}
 
-		err := ckValueSetFromBytes(p11Attr.Value, v)
-		if err != nil {
+		if err := ckValueSetFromBytes(p11Attr.Value, v, ckULONGIs32bit); err != nil {
 			return keystores.ErrorHandler(fmt.Errorf("can't set %s from %v bytes: %w", ckaDesc.name, p11Attr.Value, err))
 		}
 		return nil
 	})
-	return err
+	return keystores.ErrorHandler(err)
 }
 
 var ckDateType = reflect.TypeOf(CK_DATE(time.Time{}))
@@ -165,7 +164,8 @@ var ckDateType = reflect.TypeOf(CK_DATE(time.Time{}))
 func processCkaFields(pv reflect.Value, fn func(reflect.Value, *CkaDesc) error) error {
 	sv := pv.Elem()
 	if sv.Kind() != reflect.Struct {
-		return fmt.Errorf("argument is not a pointer to a struct")
+		fmt.Printf("\n%#v\n", pv)
+		return keystores.ErrorHandler(fmt.Errorf("argument is not a pointer to a struct"))
 	}
 
 	st := sv.Type()

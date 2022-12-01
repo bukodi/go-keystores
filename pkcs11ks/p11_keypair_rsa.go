@@ -1,7 +1,9 @@
 package pkcs11ks
 
 import (
+	"crypto/rand"
 	"crypto/rsa"
+	"encoding/hex"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
 	"math/big"
@@ -47,20 +49,38 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privat
 
 	var privKeyAttrs RSAPrivateKeyAttributes
 	var pubKeyAttrs RSAPublicKeyAttributes
-	if err := getP11Attributes(ks, hPriv, &privKeyAttrs, true); err != nil {
+	if err := getP11Attributes(ks, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(ks, hPub, &pubKeyAttrs, true); err != nil {
+	if err := getP11Attributes(ks, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
-	var rsaPubKey rsa.PublicKey
-	rsaPubKey.N = pubKeyAttrs.CKA_MODULUS
-	rsaPubKey.E = int((*big.Int)(pubKeyAttrs.CKA_PUBLIC_EXPONENT).Int64())
 	kp, err := ks.newRSAKeyPair(&privKeyAttrs, &pubKeyAttrs)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
+
+	// Generate ID
+	var ckaId []byte
+	if ckaId, err = hex.DecodeString(string(kp.Id())); err == nil && len(ckaId) >= 8 {
+		ckaId = ckaId[0:8]
+	} else {
+		ckaId = make([]byte, 8)
+		rand.Read(ckaId)
+	}
+	// Set attribute CKA_ID both on private and public key
+	if err = ks.provider.pkcs11Ctx.SetAttributeValue(ks.hSession, hPriv,
+		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	kp.rsaPrivKeyAttrs.CKA_ID = ckaId
+	if err = ks.provider.pkcs11Ctx.SetAttributeValue(ks.hSession, hPub,
+		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	kp.rsaPubKeyAttrs.CKA_ID = ckaId
+
 	return kp, nil
 
 }

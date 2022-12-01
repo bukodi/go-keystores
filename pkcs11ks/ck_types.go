@@ -16,6 +16,8 @@ const CKK_ECDSA = CK_KEY_TYPE(p11api.CKK_ECDSA)
 const CKK_AES = CK_KEY_TYPE(p11api.CKK_AES)
 
 type CK_BBOOL bool
+
+// From Pkcs11 spec: CK_ULONG will sometimes be 32 bits, and sometimes perhaps 64 bits
 type CK_ULONG uint32
 type CK_DATE time.Time
 type CK_KEY_TYPE CK_ULONG
@@ -45,16 +47,26 @@ func bytesFrom_CK_BBOOL(v CK_BBOOL) []byte {
 }
 
 func bytesTo_CK_ULONG(bytes []byte) (CK_ULONG, error) {
-	if len(bytes) != 4 {
-		return 0, fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
+	switch len(bytes) {
+	case 4:
+		return CK_ULONG(binary.LittleEndian.Uint32(bytes)), nil
+	case 8:
+		return CK_ULONG(binary.LittleEndian.Uint64(bytes)), nil
+	default:
+		return 0, fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
 	}
-	return CK_ULONG(binary.LittleEndian.Uint32(bytes)), nil
 }
 
-func bytesFrom_CK_ULONG(a CK_ULONG) []byte {
-	bytes := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(bytes, uint32(a))
-	return bytes
+func bytesFrom_CK_ULONG(a CK_ULONG, ckULONGIs32bit bool) []byte {
+	if ckULONGIs32bit {
+		bytes := []byte{0, 0, 0, 0}
+		binary.LittleEndian.PutUint32(bytes, uint32(a))
+		return bytes
+	} else {
+		bytes := []byte{0, 0, 0, 0, 0, 0, 0, 0}
+		binary.LittleEndian.PutUint64(bytes, uint64(a))
+		return bytes
+	}
 }
 
 func bytesTo_CK_DATE(bytes []byte) (CK_DATE, error) {
@@ -85,20 +97,12 @@ func bytesFrom_CK_BigInt(a CK_BigInt) []byte {
 }
 
 func bytesTo_CK_KEY_TYPE(bytes []byte) (CK_KEY_TYPE, error) {
-	switch len(bytes) {
-	case 4:
-		return CK_KEY_TYPE(binary.LittleEndian.Uint32(bytes)), nil
-	case 8:
-		return CK_KEY_TYPE(binary.LittleEndian.Uint64(bytes)), nil
-	default:
-		return 0, fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
-	}
+	ul, err := bytesTo_CK_ULONG(bytes)
+	return CK_KEY_TYPE(ul), err
 }
 
-func bytesFrom_CK_KEY_TYPE(a CK_KEY_TYPE) []byte {
-	bytes := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(bytes, uint32(a))
-	return bytes
+func bytesFrom_CK_KEY_TYPE(a CK_KEY_TYPE, ckULONGIs32Bit bool) []byte {
+	return bytesFrom_CK_ULONG(CK_ULONG(a), ckULONGIs32Bit)
 }
 
 func bytesTo_CK_Bytes(bytes []byte) (CK_Bytes, error) {
@@ -152,51 +156,52 @@ func bytesFrom_CK_String(a CK_String) []byte {
 }
 
 func bytesTo_CK_OBJECT_CLASS(bytes []byte) (CK_OBJECT_CLASS, error) {
-	switch len(bytes) {
-	case 4:
-		return CK_OBJECT_CLASS(binary.LittleEndian.Uint32(bytes)), nil
-	case 8:
-		return CK_OBJECT_CLASS(binary.LittleEndian.Uint64(bytes)), nil
-	default:
-		return 0, fmt.Errorf("wrong attr value size. Expected 4 or 8 , actual %d", len(bytes))
-	}
+	ul, err := bytesTo_CK_ULONG(bytes)
+	return CK_OBJECT_CLASS(ul), err
 }
 
-func bytesFrom_CK_OBJECT_CLASS(a CK_OBJECT_CLASS) []byte {
-	bytes := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(bytes, uint32(a))
-	return bytes
+func bytesFrom_CK_OBJECT_CLASS(a CK_OBJECT_CLASS, ckULONGIs32Bit bool) []byte {
+	return bytesFrom_CK_ULONG(CK_ULONG(a), ckULONGIs32Bit)
 }
 func bytesTo_CK_MECHANISM_TYPE(bytes []byte) (CK_MECHANISM_TYPE, error) {
-	if len(bytes) != 4 {
-		return 0, fmt.Errorf("wrong attr value size. Expected %d, actual %d", 4, len(bytes))
-	}
-	return CK_MECHANISM_TYPE(binary.LittleEndian.Uint32(bytes)), nil
+	ul, err := bytesTo_CK_ULONG(bytes)
+	return CK_MECHANISM_TYPE(ul), err
 }
 
-func bytesFrom_CK_MECHANISM_TYPE(a CK_MECHANISM_TYPE) []byte {
-	bytes := []byte{0, 0, 0, 0}
-	binary.LittleEndian.PutUint32(bytes, uint32(a))
-	return bytes
+func bytesFrom_CK_MECHANISM_TYPE(a CK_MECHANISM_TYPE, ckULONGIs32Bit bool) []byte {
+	return bytesFrom_CK_ULONG(CK_ULONG(a), ckULONGIs32Bit)
 }
 
-func bytesTo_CK_MECHANISM_TYPE_PTR(bytes []byte) (CK_MECHANISM_TYPE_PTR, error) {
-	if len(bytes)%4 != 0 {
-		return nil, fmt.Errorf("wrong attr value size. Expected mod 4 == 0, actual %d", len(bytes))
+func bytesTo_CK_MECHANISM_TYPE_PTR(bytes []byte, ckULONGIs32Bit bool) (CK_MECHANISM_TYPE_PTR, error) {
+	ckULONGSize := 8
+	if ckULONGIs32Bit {
+		ckULONGSize = 4
 	}
-	x := make([]CK_MECHANISM_TYPE, len(bytes)/4)
-	for i := 0; i < len(bytes)/4; i += 1 {
-		mt := CK_MECHANISM_TYPE(binary.LittleEndian.Uint32(bytes[i*4 : i*4+4]))
-		(x)[i] = mt
+	if len(bytes)%ckULONGSize != 0 {
+		return nil, fmt.Errorf("wrong attr value size. Expected mod %d == 0, actual %d", ckULONGSize, len(bytes))
+	}
+	x := make([]CK_MECHANISM_TYPE, len(bytes)/ckULONGSize)
+	for i := 0; i < len(bytes)/ckULONGSize; i += 1 {
+		itemBytes := bytes[i*ckULONGSize : i*ckULONGSize+ckULONGSize]
+		mt, err := bytesTo_CK_ULONG(itemBytes)
+		if err != nil {
+			return nil, err
+		}
+		(x)[i] = CK_MECHANISM_TYPE(mt)
 	}
 	return x, nil
 }
 
-func bytesFrom_CK_MECHANISM_TYPE_PTR(a CK_MECHANISM_TYPE_PTR) []byte {
-	bytes := make([]byte, len(a)*4)
+func bytesFrom_CK_MECHANISM_TYPE_PTR(a CK_MECHANISM_TYPE_PTR, ckULONGIs32Bit bool) []byte {
+	ckULONGSize := 8
+	if ckULONGIs32Bit {
+		ckULONGSize = 4
+	}
+	bytes := make([]byte, len(a)*ckULONGSize)
 	for i := 0; i < len(a); i += 1 {
-		mt := (a)[i]
-		binary.LittleEndian.PutUint32(bytes[i*4:i*4+4], uint32(mt))
+		mt := a[i]
+		itemBytes := bytesFrom_CK_MECHANISM_TYPE(mt, ckULONGIs32Bit)
+		copy(bytes[i*ckULONGSize:i*ckULONGSize+ckULONGSize], itemBytes)
 	}
 	return bytes
 }
@@ -213,7 +218,7 @@ func uint32or64ValueFromBytes(bytes []byte, v reflect.Value) error {
 	return nil
 }
 
-func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
+func ckValueSetFromBytes(bytes []byte, v reflect.Value, ckULONGIs32bit bool) error {
 	switch v.Type() {
 	case reflect.TypeOf(CK_BBOOL(false)):
 		if len(bytes) != 1 {
@@ -223,7 +228,9 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.SetBool(bytes[0] != 0)
 		return nil
 	case reflect.TypeOf(CK_ULONG(0)):
-		return uint32or64ValueFromBytes(bytes, v)
+		ui, err := bytesTo_CK_ULONG(bytes)
+		v.SetUint(uint64(ui))
+		return err
 	case reflect.TypeOf(CK_DATE{}):
 		if len(bytes) == 0 {
 			v.Set(reflect.ValueOf(CK_DATE{}))
@@ -240,7 +247,9 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.Set(reflect.ValueOf(CK_DATE(d)))
 		return nil
 	case reflect.TypeOf(CK_KEY_TYPE(0)):
-		return uint32or64ValueFromBytes(bytes, v)
+		ui, err := bytesTo_CK_KEY_TYPE(bytes)
+		v.SetUint(uint64(ui))
+		return err
 	case reflect.TypeOf(CK_Bytes{}):
 		x := make([]byte, len(bytes))
 		for i, b := range bytes {
@@ -261,11 +270,13 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 		v.SetString(string(buff))
 		return nil
 	case reflect.TypeOf(CK_OBJECT_CLASS(0)):
-		return uint32or64ValueFromBytes(bytes, v)
+		ui, err := bytesTo_CK_OBJECT_CLASS(bytes)
+		v.SetUint(uint64(ui))
+		return err
 	case reflect.TypeOf(CK_MECHANISM_TYPE(0)):
-		return uint32or64ValueFromBytes(bytes, v)
-		v.SetUint(uint64(binary.LittleEndian.Uint32(bytes)))
-		return nil
+		ui, err := bytesTo_CK_MECHANISM_TYPE(bytes)
+		v.SetUint(uint64(ui))
+		return err
 	case reflect.TypeOf(CK_MECHANISM_TYPE_PTR{}):
 		if len(bytes)%4 != 0 {
 			return fmt.Errorf("wrong attr value size. Expected mod 4 == 0, actual %d", len(bytes))
@@ -289,7 +300,7 @@ func ckValueSetFromBytes(bytes []byte, v reflect.Value) error {
 	}
 }
 
-func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
+func ckValueWriteToBytes(v reflect.Value, ckULONGIs32bit bool) ([]byte, error) {
 	switch v.Type() {
 	case reflect.TypeOf(CK_BBOOL(false)):
 		bytes := []byte{0}
@@ -300,18 +311,14 @@ func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
 		}
 		return bytes, nil
 	case reflect.TypeOf(CK_ULONG(0)):
-		bytes := []byte{0, 0, 0, 0}
-		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
-		return bytes, nil
+		return bytesFrom_CK_ULONG(CK_ULONG(v.Uint()), ckULONGIs32bit), nil
 	case reflect.TypeOf(CK_DATE{}):
 		var pa = new(CK_DATE)
 		reflect.ValueOf(pa).Elem().Set(v)
 		str := time.Time(*pa).Format("20060102")
 		return []byte(str), nil
 	case reflect.TypeOf(CK_KEY_TYPE(0)):
-		bytes := []byte{0, 0, 0, 0}
-		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
-		return bytes, nil
+		return bytesFrom_CK_KEY_TYPE(CK_KEY_TYPE(v.Uint()), ckULONGIs32bit), nil
 	case reflect.TypeOf(CK_Bytes{}):
 		a := v.Bytes()
 		bytes := make([]byte, len(a))
@@ -337,13 +344,9 @@ func ckValueWriteToBytes(v reflect.Value) ([]byte, error) {
 		}
 		return bytes, nil
 	case reflect.TypeOf(CK_OBJECT_CLASS(0)):
-		bytes := []byte{0, 0, 0, 0}
-		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
-		return bytes, nil
+		return bytesFrom_CK_OBJECT_CLASS(CK_OBJECT_CLASS(v.Uint()), ckULONGIs32bit), nil
 	case reflect.TypeOf(CK_MECHANISM_TYPE(0)):
-		bytes := []byte{0, 0, 0, 0}
-		binary.LittleEndian.PutUint32(bytes, uint32(v.Uint()))
-		return bytes, nil
+		return bytesFrom_CK_MECHANISM_TYPE(CK_MECHANISM_TYPE(v.Uint()), ckULONGIs32bit), nil
 	case reflect.TypeOf(CK_MECHANISM_TYPE_PTR{}):
 		var a = make(CK_MECHANISM_TYPE_PTR, 0)
 		va := reflect.ValueOf(&a).Elem()

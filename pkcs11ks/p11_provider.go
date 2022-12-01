@@ -13,7 +13,9 @@ type Pkcs11Config struct {
 type Pkcs11Provider struct {
 	// TODO: support multiple driver paths
 	driverPath string
-	pkcs11Ctx  *p11api.Ctx
+	// From Pkcs11 spec: CK_ULONG will sometimes be 32 bits, and sometimes perhaps 64 bits)
+	ckULONGis32bit bool
+	pkcs11Ctx      *p11api.Ctx
 }
 
 // Check whether implements the keystores.Provider interface
@@ -21,7 +23,8 @@ var _ keystores.Provider = &Pkcs11Provider{}
 
 func NewPkcs11Provider(config Pkcs11Config) *Pkcs11Provider {
 	p := Pkcs11Provider{
-		driverPath: config.DriverPath,
+		driverPath:     config.DriverPath,
+		ckULONGis32bit: false,
 	}
 	return &p
 }

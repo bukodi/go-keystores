@@ -79,7 +79,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 
 		if objClass == p11api.CKO_PUBLIC_KEY && keyType == p11api.CKK_RSA {
 			var pubKey RSAPublicKeyAttributes
-			if err := getP11Attributes(ks, hObj, &pubKey, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(ks, hObj, &pubKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -87,7 +87,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 			}
 		} else if objClass == p11api.CKO_PRIVATE_KEY && keyType == p11api.CKK_RSA {
 			var privKey RSAPrivateKeyAttributes
-			if err := getP11Attributes(ks, hObj, &privKey, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(ks, hObj, &privKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -95,7 +95,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 			}
 		} else if objClass == p11api.CKO_PUBLIC_KEY && keyType == p11api.CKK_EC {
 			var pubKey ECCPublicKeyAttributes
-			if err := getP11Attributes(ks, hObj, &pubKey, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(ks, hObj, &pubKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -103,7 +103,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 			}
 		} else if objClass == p11api.CKO_PRIVATE_KEY && keyType == p11api.CKK_EC {
 			var privKey ECCPrivateKeyAttributes
-			if err := getP11Attributes(ks, hObj, &privKey, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(ks, hObj, &privKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -111,7 +111,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 			}
 		} else {
 			var otherObj CommonStorageObjectAttributes
-			if err := getP11Attributes(ks, hObj, &otherObj, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(ks, hObj, &otherObj, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -123,8 +123,8 @@ func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 	return
 }
 
-func getP11Attributes[T CkaStruct](ks *Pkcs11KeyStore, hObj p11api.ObjectHandle, ckaStruct T, skipSensitiveAttrs bool) error {
-	attrTemplate, err := ckaStructToP11Attrs(ckaStruct, skipSensitiveAttrs)
+func getP11Attributes[T CkaStruct](ks *Pkcs11KeyStore, hObj p11api.ObjectHandle, ckaStruct T, ckULONGIs32bit bool, skipSensitiveAttrs bool) error {
+	attrTemplate, err := ckaStructToP11Attrs(ckaStruct, ckULONGIs32bit, skipSensitiveAttrs)
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
@@ -132,7 +132,7 @@ func getP11Attributes[T CkaStruct](ks *Pkcs11KeyStore, hObj p11api.ObjectHandle,
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
-	err = ckaStructFromP11Attrs(ckaStruct, attrs)
+	err = ckaStructFromP11Attrs(ckaStruct, attrs, ckULONGIs32bit)
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
