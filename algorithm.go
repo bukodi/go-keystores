@@ -64,6 +64,17 @@ var KeyAlgEd448 = KeyAlgorithm{
 	Name: "Ed448",
 }
 
+var ECCAlgorithmByOid = make(map[string]*KeyAlgorithm)
+
+func init() {
+	ECCAlgorithmByOid[KeyAlgECP256.Oid.String()] = &KeyAlgECP256
+	ECCAlgorithmByOid[KeyAlgECP224.Oid.String()] = &KeyAlgECP224
+	ECCAlgorithmByOid[KeyAlgECP384.Oid.String()] = &KeyAlgECP384
+	ECCAlgorithmByOid[KeyAlgECP521.Oid.String()] = &KeyAlgECP521
+	ECCAlgorithmByOid[KeyAlgEd25519.Oid.String()] = &KeyAlgEd25519
+	ECCAlgorithmByOid[KeyAlgEd448.Oid.String()] = &KeyAlgEd448
+}
+
 func (ka KeyAlgorithm) Equal(other KeyAlgorithm) bool {
 	if !ka.Oid.Equal(other.Oid) {
 		return false

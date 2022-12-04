@@ -131,7 +131,7 @@ func (ks *Pkcs11KeyStore) KeyPairs() (keyPairs []keystores.KeyPair, retErr error
 			retArray = append(retArray, kp)
 		}
 	}
-	return retArray, nil
+	return retArray, retErr
 }
 
 func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {

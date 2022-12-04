@@ -82,5 +82,4 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privat
 	kp.rsaPubKeyAttrs.CKA_ID = ckaId
 
 	return kp, nil
-
 }

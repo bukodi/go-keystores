@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	ErrAlgorithmNotSupportedByKeyStore = errors.New("algorithm not supported by key store")
 	ErrOperationNotSupportedByKeyStore = errors.New("operation not supported by key store")
 )
 

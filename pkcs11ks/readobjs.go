@@ -6,10 +6,21 @@ import (
 	p11api "github.com/miekg/pkcs11"
 )
 
+func (ks *Pkcs11KeyStore) clearInternalContainers() {
+	ks.knownRSAPrivKeys = make([]*RSAPrivateKeyAttributes, 0)
+	ks.knownRSAPubKeys = make([]*RSAPublicKeyAttributes, 0)
+	ks.knownECCPrivKeys = make([]*ECCPrivateKeyAttributes, 0)
+	ks.knownECCPubKeys = make([]*ECCPublicKeyAttributes, 0)
+	ks.knownOtherStorageObjects = make([]*CommonStorageObjectAttributes, 0)
+
+}
+
 func (ks *Pkcs11KeyStore) readStorageObjects() (retErr error) {
 	if err := keystores.EnsureOpen(ks); err != nil {
 		return keystores.ErrorHandler(err)
 	}
+	ks.clearInternalContainers()
+
 	// Query all object handle
 	if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, []*p11api.Attribute{}); err != nil {
 		return keystores.ErrorHandler(err)

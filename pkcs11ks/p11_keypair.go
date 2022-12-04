@@ -22,7 +22,7 @@ type Pkcs11KeyPair struct {
 	rsaPubKeyAttrs  *RSAPublicKeyAttributes
 
 	// ECC part
-	eccPublicKey    ecdsa.PublicKey
+	eccPublicKey    *ecdsa.PublicKey
 	eccPrivKeyAttrs *ECCPrivateKeyAttributes
 	eccPubKeyAttrs  *ECCPublicKeyAttributes
 }
@@ -136,6 +136,8 @@ func (kp *Pkcs11KeyPair) Verify(signature []byte, digest []byte, opts crypto.Sig
 func (kp *Pkcs11KeyPair) commonPrivateKeyAttributes() *CommonPrivateKeyAttributes {
 	if kp.rsaPrivKeyAttrs != nil {
 		return &kp.rsaPrivKeyAttrs.CommonPrivateKeyAttributes
+	} else if kp.eccPrivKeyAttrs != nil {
+		return &kp.eccPrivKeyAttrs.CommonPrivateKeyAttributes
 	} else {
 		panic("not implemented")
 	}
@@ -144,6 +146,8 @@ func (kp *Pkcs11KeyPair) commonPrivateKeyAttributes() *CommonPrivateKeyAttribute
 func (kp *Pkcs11KeyPair) commonPublicKeyAttributes() *CommonPublicKeyAttributes {
 	if kp.rsaPubKeyAttrs != nil {
 		return &kp.rsaPubKeyAttrs.CommonPublicKeyAttributes
+	} else if kp.eccPubKeyAttrs != nil {
+		return &kp.eccPubKeyAttrs.CommonPublicKeyAttributes
 	} else {
 		panic("not implemented")
 	}

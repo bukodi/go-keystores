@@ -194,14 +194,15 @@ func TestRsaGenSignVerify(t *testing.T) {
 func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
 	kps, err := ks.KeyPairs()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%#v", err)
 	}
 	if len(kps) == 0 {
 		t.Logf("No key pairs.")
 	} else {
+		t.Logf("--- %d key pairs --- ", len(kps))
 		for i, kp := range kps {
 			p11Kp := kp.(*Pkcs11KeyPair)
-			t.Logf("%d.: Label: %s, CKA_ID: %v, Id: %s", i, kp.Label(), p11Kp.rsaPrivKeyAttrs.CKA_ID, kp.Id())
+			t.Logf("%d.: Class: %d, Label: %s, CKA_ID: %v, Id: %s", i, p11Kp.commonPrivateKeyAttributes().CKA_CLASS, kp.Label(), p11Kp.commonPrivateKeyAttributes().CKA_ID, kp.Id())
 		}
 	}
 }
