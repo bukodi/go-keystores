@@ -57,7 +57,7 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 
 func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
 	//kp.Decrypt()
-	t.Logf("encrypt-decrypt test not implemented")
+	t.Skipf("encrypt-decrypt test not implemented")
 }
 
 type KeyPairTestCase struct {
