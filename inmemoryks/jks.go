@@ -10,7 +10,7 @@ import (
 
 func (imks *InMemoryKeyStore) SaveAsJKS(w io.Writer, password []byte) error {
 	ks := jks.New()
-	kps, errs := imks.KeyPairs()
+	kps, errs := imks.KeyPairs(false)
 	_ = errs // Ignore errors
 	for _, kp := range kps {
 		alias := kp.Label()

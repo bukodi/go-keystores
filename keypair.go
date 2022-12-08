@@ -30,7 +30,7 @@ type KeyPair interface {
 	Label() string
 	SetLabel(label string) error
 	Algorithm() KeyAlgorithm
-	KeyUsage() x509.KeyUsage
+	KeyUsage() map[KeyUsage]bool
 	KeyStore() KeyStore
 	Public() crypto.PublicKey
 	Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error)
@@ -46,7 +46,7 @@ type AsyncKeyPair interface {
 	Label(ctx context.Context) <-chan string
 	SetLabel(ctx context.Context, label string) (errCh <-chan error)
 	Algorithm(ctx context.Context) <-chan KeyAlgorithm
-	KeyUsage(ctx context.Context) <-chan x509.KeyUsage
+	KeyUsage(ctx context.Context) <-chan []KeyUsage
 	KeyStore(ctx context.Context) <-chan AsyncKeyStore
 	Public(ctx context.Context) <-chan crypto.PublicKey
 	Sign(ctx context.Context, rand io.Reader, digest []byte, opts crypto.SignerOpts) (signatureCh <-chan []byte, errCh <-chan error)
@@ -60,7 +60,7 @@ type AsyncKeyPair interface {
 type GenKeyPairOpts struct {
 	Algorithm  KeyAlgorithm
 	Label      string
-	KeyUsage   x509.KeyUsage
+	KeyUsage   map[KeyUsage]bool
 	Exportable bool
 	Ephemeral  bool
 }

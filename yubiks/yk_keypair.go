@@ -2,7 +2,6 @@ package yubiks
 
 import (
 	"crypto"
-	"crypto/x509"
 	"github.com/bukodi/go-keystores"
 	"io"
 )
@@ -17,7 +16,7 @@ type YkKeyPair struct {
 	id           keystores.KeyPairId
 	keyAlgorithm keystores.KeyAlgorithm
 	label        string
-	keyUsage     x509.KeyUsage
+	keyUsage     map[keystores.KeyUsage]bool
 }
 
 func (kp YkKeyPair) Id() keystores.KeyPairId {
@@ -32,7 +31,7 @@ func (kp YkKeyPair) Algorithm() keystores.KeyAlgorithm {
 	panic("implement me")
 }
 
-func (kp YkKeyPair) KeyUsage() x509.KeyUsage {
+func (kp YkKeyPair) KeyUsage() map[keystores.KeyUsage]bool {
 	panic("implement me")
 }
 

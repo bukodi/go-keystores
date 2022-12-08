@@ -3,7 +3,6 @@ package inmemoryks
 import (
 	"fmt"
 	"github.com/bukodi/go-keystores"
-	"sort"
 	"unsafe"
 )
 
@@ -48,23 +47,41 @@ func (imks *InMemoryKeyStore) Reload() error {
 }
 
 func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
-	algs := []keystores.KeyAlgorithm{keystores.KeyAlgRSA2048, keystores.KeyAlgECP256}
+	algs := []keystores.KeyAlgorithm{
+		keystores.KeyAlgRSA1024,
+		keystores.KeyAlgRSA2048,
+		keystores.KeyAlgRSA3072,
+		keystores.KeyAlgRSA4096,
+		keystores.KeyAlgECP224,
+		keystores.KeyAlgECP256,
+		keystores.KeyAlgECP384,
+		keystores.KeyAlgECP521,
+	}
 	return algs
 }
 
-func (imks *InMemoryKeyStore) KeyPairs() ([]keystores.KeyPair, error) {
-	if imks.keyPairs == nil {
-		return make([]keystores.KeyPair, 0), nil
+func (imks *InMemoryKeyStore) KeyPairById(id keystores.KeyPairId) keystores.KeyPair {
+	if kps, err := imks.KeyPairs(false); err == nil {
+		kp := kps[id]
+		if kp != nil {
+			return kp
+		}
 	}
-	ret := make([]keystores.KeyPair, 0, len(imks.keyPairs))
-	for _, kp := range imks.keyPairs {
-		ret = append(ret, kp)
+	return nil
+}
+
+func (imks *InMemoryKeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairId]keystores.KeyPair, errs error) {
+	if (reload || imks.keyPairs == nil) && imks.persister != nil {
+		imks.persister.Load(imks)
+	} else if imks.keyPairs == nil {
+		imks.keyPairs = make(map[keystores.KeyPairId]*InMemoryKeyPair)
 	}
-	// Order lexicographically for stable response
-	sort.Slice(ret, func(i, j int) bool {
-		return ret[i].Id() < ret[j].Id()
-	})
-	return ret, nil
+
+	keyPairs = make(map[keystores.KeyPairId]keystores.KeyPair)
+	for k, v := range imks.keyPairs {
+		keyPairs[k] = v
+	}
+	return keyPairs, nil
 }
 
 func (imks *InMemoryKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {

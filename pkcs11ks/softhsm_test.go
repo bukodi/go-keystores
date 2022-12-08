@@ -1,9 +1,13 @@
 package pkcs11ks
 
 import (
-	"crypto/x509"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
 	"errors"
 	"github.com/bukodi/go-keystores"
+	"github.com/bukodi/go-keystores/internal"
 	p11api "github.com/miekg/pkcs11"
 	"github.com/rainycape/dl"
 	"io/ioutil"
@@ -96,8 +100,6 @@ func TestSoftHSM(t *testing.T) {
 }
 
 func TestListPkcs11KeyStores(t *testing.T) {
-	t.Logf("\tp11api.CK_UNAVAILABLE_INFORMATION = %x", p11api.CK_UNAVAILABLE_INFORMATION)
-
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
 	err := keystores.EnsureOpen(p)
@@ -125,12 +127,14 @@ func TestListPkcs11KeyStores(t *testing.T) {
 		t.Fatalf("TestTokenA not found")
 	}
 
-	keyPairs, err := ksTestTokenA.KeyPairs()
-	if err != nil {
-		t.Errorf("%#v", err)
-	}
-	for _, kp := range keyPairs {
-		t.Logf("KeyPair %s (%s)", kp.Label(), kp.Id())
+	for _, alg := range ksTestTokenA.SupportedPrivateKeyAlgorithms() {
+		if alg.RSAKeyLength > 1024 {
+			// Skip slow RSA operations
+			continue
+		}
+		internal.KeyPairTest(t, ksTestTokenA, alg, []keystores.KeyUsage{keystores.KeyUsageSign, keystores.KeyUsageDecrypt})
+		internal.KeyPairTest(t, ksTestTokenA, alg, []keystores.KeyUsage{keystores.KeyUsageSign})
+		internal.KeyPairTest(t, ksTestTokenA, alg, []keystores.KeyUsage{keystores.KeyUsageDecrypt})
 	}
 }
 
@@ -139,44 +143,46 @@ func TestRsaGenSignVerify(t *testing.T) {
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
 	err := keystores.EnsureOpen(p)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
 	}
 	defer keystores.MustClosed(p)
 
 	ks, err := p.FindKeyStore("TestTokenA", "")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
 	}
 
 	err = keystores.EnsureOpen(ks)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
 	}
 	defer keystores.MustClosed(ks)
 
 	dumpKeys(ks, t)
 	kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{
-		Algorithm:  keystores.KeyAlgRSA2048,
-		Label:      "testKey",
-		KeyUsage:   x509.KeyUsageDigitalSignature | x509.KeyUsageDataEncipherment,
+		Algorithm: keystores.KeyAlgRSA2048,
+		Label:     "testKey",
+		KeyUsage: map[keystores.KeyUsage]bool{
+			keystores.KeyUsageSign: true,
+		},
 		Exportable: false,
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
 	}
 	defer func() {
 		err = kp.Destroy()
 		if err != nil {
 			dumpKeys(ks, t)
-			t.Fatal(err)
+			t.Fatalf("%+v", err)
 		}
 	}()
 
 	dumpKeys(ks, t)
 	var kpTest *Pkcs11KeyPair
-	kpSlice, err := ks.KeyPairs()
+	kpSlice, err := ks.KeyPairs(true)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
 	}
 	for _, kp := range kpSlice {
 		if kp.Label() == "testKey" {
@@ -189,10 +195,33 @@ func TestRsaGenSignVerify(t *testing.T) {
 		t.Logf("Test key found: %#v", kpTest)
 	}
 
+	digest := sha256.Sum256([]byte("Hello world!"))
+	signature, err := kp.Sign(rand.Reader, digest[:], &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	err = rsa.VerifyPSS(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature, &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("RSA PSS signature verified")
+	}
+
+	signature, err = kp.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	err = rsa.VerifyPKCS1v15(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("RSA PKCS1v15 signature verified")
+	}
+
 }
 
 func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
-	kps, err := ks.KeyPairs()
+	kps, err := ks.KeyPairs(true)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
@@ -200,9 +229,9 @@ func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
 		t.Logf("No key pairs.")
 	} else {
 		t.Logf("--- %d key pairs --- ", len(kps))
-		for i, kp := range kps {
+		for _, kp := range kps {
 			p11Kp := kp.(*Pkcs11KeyPair)
-			t.Logf("%d.: Class: %d, Label: %s, CKA_ID: %v, Id: %s", i, p11Kp.commonPrivateKeyAttributes().CKA_CLASS, kp.Label(), p11Kp.commonPrivateKeyAttributes().CKA_ID, kp.Id())
+			t.Logf(" Class: %d, Label: %s, CKA_ID: %v, Id: %s", p11Kp.commonPrivateKeyAttributes().CKA_CLASS, kp.Label(), p11Kp.commonPrivateKeyAttributes().CKA_ID, kp.Id())
 		}
 	}
 }

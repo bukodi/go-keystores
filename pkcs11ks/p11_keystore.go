@@ -2,7 +2,6 @@ package pkcs11ks
 
 import (
 	"bytes"
-	"crypto/x509"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
@@ -83,12 +82,32 @@ func (ks *Pkcs11KeyStore) IsOpen() bool {
 }
 
 func (ks *Pkcs11KeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
-	algs := []keystores.KeyAlgorithm{keystores.KeyAlgRSA2048, keystores.KeyAlgECP256}
+	algs := []keystores.KeyAlgorithm{
+		keystores.KeyAlgRSA1024,
+		keystores.KeyAlgRSA2048,
+		keystores.KeyAlgRSA3072,
+		keystores.KeyAlgRSA4096,
+		keystores.KeyAlgECP224,
+		keystores.KeyAlgECP256,
+		keystores.KeyAlgECP384,
+		keystores.KeyAlgECP521,
+	}
 	return algs
 }
 
-func (ks *Pkcs11KeyStore) KeyPairs() (keyPairs []keystores.KeyPair, retErr error) {
-	var reload = true // Add this var to argument
+func (ks *Pkcs11KeyStore) KeyPairById(id keystores.KeyPairId) keystores.KeyPair {
+	kps, err := ks.KeyPairs(false)
+	if err == nil {
+		kp := kps[id]
+		if kp != nil {
+			return kp
+		}
+	}
+	// TODO: implement single search
+	return nil
+}
+
+func (ks *Pkcs11KeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairId]keystores.KeyPair, retErr error) {
 	if (ks.knownRSAPrivKeys == nil) && (ks.knownECCPrivKeys == nil) || reload {
 		err := ks.Reload()
 		if err != nil {
@@ -96,7 +115,7 @@ func (ks *Pkcs11KeyStore) KeyPairs() (keyPairs []keystores.KeyPair, retErr error
 		}
 	}
 
-	retArray := make([]keystores.KeyPair, 0)
+	keyPairs = make(map[keystores.KeyPairId]keystores.KeyPair)
 	for _, privKeyAttrs := range ks.knownRSAPrivKeys {
 		// Find matching pub key
 		privIdBytes := privKeyAttrs.CKA_ID
@@ -111,7 +130,7 @@ func (ks *Pkcs11KeyStore) KeyPairs() (keyPairs []keystores.KeyPair, retErr error
 		if kp, err := ks.newRSAKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
 			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 		} else {
-			retArray = append(retArray, kp)
+			keyPairs[kp.Id()] = kp
 		}
 	}
 	for _, privKeyAttrs := range ks.knownECCPrivKeys {
@@ -128,29 +147,32 @@ func (ks *Pkcs11KeyStore) KeyPairs() (keyPairs []keystores.KeyPair, retErr error
 		if kp, err := ks.newECCKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
 			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 		} else {
-			retArray = append(retArray, kp)
+			keyPairs[kp.Id()] = kp
 		}
 	}
-	return retArray, retErr
+	return keyPairs, retErr
 }
 
 func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
+	if err := keystores.EnsureOpen(ks); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
 	tokenPersistent := !opts.Ephemeral
-	kuSign := (opts.KeyUsage & (x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature)) != 0
 	publicKeyTemplate := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
 		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
-		p11api.NewAttribute(p11api.CKA_VERIFY, kuSign),
-		p11api.NewAttribute(p11api.CKA_ENCRYPT, opts.KeyUsage&x509.KeyUsageDataEncipherment != 0),
-		p11api.NewAttribute(p11api.CKA_WRAP, opts.KeyUsage&x509.KeyUsageKeyEncipherment != 0),
+		p11api.NewAttribute(p11api.CKA_VERIFY, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageSign]))),
+		p11api.NewAttribute(p11api.CKA_ENCRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
+		p11api.NewAttribute(p11api.CKA_WRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
 	}
 	privateKeyTemplate := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
-		p11api.NewAttribute(p11api.CKA_SIGN, kuSign),
-		p11api.NewAttribute(p11api.CKA_DECRYPT, opts.KeyUsage&x509.KeyUsageDataEncipherment != 0),
-		p11api.NewAttribute(p11api.CKA_UNWRAP, opts.KeyUsage&x509.KeyUsageKeyEncipherment != 0),
-		p11api.NewAttribute(p11api.CKA_DERIVE, opts.KeyUsage&x509.KeyUsageKeyAgreement != 0),
+		p11api.NewAttribute(p11api.CKA_SIGN, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageSign]))),
+		p11api.NewAttribute(p11api.CKA_DECRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
+		p11api.NewAttribute(p11api.CKA_UNWRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
+		p11api.NewAttribute(p11api.CKA_DERIVE, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDerive]))),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
 		p11api.NewAttribute(p11api.CKA_SENSITIVE, !opts.Exportable),
 		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, opts.Exportable),

@@ -22,7 +22,7 @@ type InMemoryKeyPair struct {
 	id          keystores.KeyPairId
 	keyAlorithm keystores.KeyAlgorithm
 	label       string
-	keyUsage    x509.KeyUsage
+	keyUsage    map[keystores.KeyUsage]bool
 }
 
 // Check whether implements the keystores.KeyPair interface
@@ -61,9 +61,10 @@ func generateKeyPair(opts keystores.GenKeyPairOpts) (*InMemoryKeyPair, error) {
 	imkp := InMemoryKeyPair{
 		keyAlorithm: opts.Algorithm,
 		keyUsage:    opts.KeyUsage,
+		label:       opts.Label,
 	}
 	reader := rand.Reader
-	if keystores.KeyAlgRSA2048.Equal(opts.Algorithm) {
+	if opts.Algorithm.RSAKeyLength > 0 {
 		rsaKey, err := rsa.GenerateKey(reader, opts.Algorithm.RSAKeyLength)
 		if err != nil {
 			return nil, keystores.ErrorHandler(err)
@@ -114,7 +115,7 @@ func (i *InMemoryKeyPair) SetLabel(label string) error {
 	return nil
 }
 
-func (i *InMemoryKeyPair) KeyUsage() x509.KeyUsage {
+func (i *InMemoryKeyPair) KeyUsage() map[keystores.KeyUsage]bool {
 	return i.keyUsage
 }
 

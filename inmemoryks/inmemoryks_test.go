@@ -39,16 +39,18 @@ func TestSupportedAlgs(t *testing.T) {
 	}
 }
 
-func TestKeys(t *testing.T) {
+func TestInMemoryKeystore(t *testing.T) {
 	ks := CreateInMemoryKeyStore()
 
-	tests := []internal.KeyPairTestCase{
-		{GenOpts: keystores.GenKeyPairOpts{Algorithm: keystores.KeyAlgRSA2048}},
-		{GenOpts: keystores.GenKeyPairOpts{Algorithm: keystores.KeyAlgECP256}},
-		{GenOpts: keystores.GenKeyPairOpts{Algorithm: keystores.KeyAlgEd25519}},
+	for _, alg := range ks.SupportedPrivateKeyAlgorithms() {
+		if alg.RSAKeyLength > 1024 {
+			// Skip slow RSA operations
+			continue
+		}
+		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageSign, keystores.KeyUsageDecrypt})
+		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageSign})
+		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageDecrypt})
 	}
-
-	internal.KeyPairTests(t, ks, tests)
 }
 
 func TestParseFilename(t *testing.T) {
@@ -93,7 +95,7 @@ func TestJKSExport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kps, _ := ks2.KeyPairs()
+	kps, _ := ks2.KeyPairs(false)
 	for _, kp := range kps {
 		t.Logf("%v", kp)
 	}

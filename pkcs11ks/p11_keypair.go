@@ -4,9 +4,10 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/x509"
+	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/utils"
+	p11api "github.com/miekg/pkcs11"
 	"github.com/pkg/errors"
 	"io"
 )
@@ -30,9 +31,47 @@ type Pkcs11KeyPair struct {
 // Check whether implements the keystores.KeyPair interface
 var _ keystores.KeyPair = &Pkcs11KeyPair{}
 
+func (kp *Pkcs11KeyPair) privateKeyHandle() (hPriv p11api.ObjectHandle, retErr error) {
+	if err := keystores.EnsureOpen(kp.keyStore); err != nil {
+		return 0, keystores.ErrorHandler(err)
+	}
+
+	// Query priv key object by CKA_CLASS and CKA_ID
+	classBytes := bytesFrom_CK_OBJECT_CLASS(kp.commonPrivateKeyAttributes().CKA_CLASS, kp.keyStore.provider.ckULONGis32bit)
+	if err := kp.keyStore.provider.pkcs11Ctx.FindObjectsInit(kp.keyStore.hSession, []*p11api.Attribute{
+		{p11api.CKA_CLASS, classBytes},
+		{p11api.CKA_ID, bytesFrom_CK_Bytes(kp.commonPrivateKeyAttributes().CKA_ID)},
+	}); err != nil {
+		return 0, keystores.ErrorHandler(err)
+	}
+	defer func() {
+		err := kp.keyStore.provider.pkcs11Ctx.FindObjectsFinal(kp.keyStore.hSession)
+		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+	}()
+
+	hObjs, _, err := kp.keyStore.provider.pkcs11Ctx.FindObjects(kp.keyStore.hSession, 100)
+	if err != nil {
+		return 0, keystores.ErrorHandler(err)
+	} else if len(hObjs) == 0 {
+		return 0, keystores.ErrorHandler(
+			fmt.Errorf("private key not found with CKA_CLASS=%v and CKA_ID=%v",
+				kp.commonPrivateKeyAttributes().CKA_CLASS,
+				kp.commonPrivateKeyAttributes().CKA_ID))
+	} else if len(hObjs) > 1 {
+		return 0, keystores.ErrorHandler(
+			fmt.Errorf("more than one (%d) private key found with CKA_CLASS=%v and CKA_ID=%v", len(hObjs),
+				kp.commonPrivateKeyAttributes().CKA_CLASS,
+				kp.commonPrivateKeyAttributes().CKA_ID))
+	} else {
+		return hObjs[0], nil
+	}
+}
+
 func (kp *Pkcs11KeyPair) Public() crypto.PublicKey {
 	if kp.rsaPublicKey != nil {
 		return kp.rsaPublicKey
+	} else if kp.eccPublicKey != nil {
+		return kp.eccPublicKey
 	} else {
 		panic("not implemented")
 	}
@@ -66,19 +105,19 @@ func (kp *Pkcs11KeyPair) Id() keystores.KeyPairId {
 	return kp.id
 }
 
-func (kp *Pkcs11KeyPair) KeyUsage() x509.KeyUsage {
-	var ku x509.KeyUsage
+func (kp *Pkcs11KeyPair) KeyUsage() map[keystores.KeyUsage]bool {
+	ku := make(map[keystores.KeyUsage]bool, 0)
 	if kp.commonPrivateKeyAttributes().CKA_SIGN {
-		ku = ku | x509.KeyUsageDigitalSignature
+		ku[keystores.KeyUsageSign] = true
 	}
 	if kp.commonPrivateKeyAttributes().CKA_DECRYPT {
-		ku = ku | x509.KeyUsageDataEncipherment
+		ku[keystores.KeyUsageDecrypt] = true
 	}
 	if kp.commonPrivateKeyAttributes().CKA_UNWRAP {
-		ku = ku | x509.KeyUsageKeyEncipherment
+		ku[keystores.KeyUsageUnwrap] = true
 	}
 	if kp.commonPrivateKeyAttributes().CKA_DERIVE {
-		ku = ku | x509.KeyUsageKeyAgreement
+		ku[keystores.KeyUsageDerive] = true
 	}
 	return ku
 }
@@ -92,7 +131,13 @@ func (kp *Pkcs11KeyPair) KeyStore() keystores.KeyStore {
 }
 
 func (kp *Pkcs11KeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
-	panic("implement me")
+	if kp.rsaPublicKey != nil {
+		return kp.rsaSign(rand, digest, opts)
+	} else if kp.eccPublicKey != nil {
+		return kp.ecdsaSign(rand, digest, opts)
+	} else {
+		panic("implement me")
+	}
 }
 
 func (kp *Pkcs11KeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {

@@ -1,12 +1,14 @@
 package pkcs11ks
 
 import (
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"encoding/asn1"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/pkg/errors"
+	"io"
 	"math/big"
 )
 
@@ -71,4 +73,8 @@ func parseEcPoint(bytes []byte, c elliptic.Curve) (*big.Int, *big.Int, error) {
 		return nil, nil, keystores.ErrorHandler(errors.New("failed to parse elliptic curve point"))
 	}
 	return x, y, nil
+}
+
+func (kp *Pkcs11KeyPair) ecdsaSign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	return nil, keystores.ErrOperationNotSupportedByKeyStore
 }

@@ -1,11 +1,14 @@
 package pkcs11ks
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
+	"fmt"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
+	"io"
 	"math/big"
 )
 
@@ -82,4 +85,76 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privat
 	kp.rsaPubKeyAttrs.CKA_ID = ckaId
 
 	return kp, nil
+}
+
+func hashToPSSParams(hashFunction crypto.Hash) (hashAlg uint, mgfAlg uint, hashLen uint) {
+	switch hashFunction {
+	case crypto.SHA1:
+		return p11api.CKM_SHA_1, p11api.CKG_MGF1_SHA1, 20
+	case crypto.SHA224:
+		return p11api.CKM_SHA224, p11api.CKG_MGF1_SHA224, 28
+	case crypto.SHA256:
+		return p11api.CKM_SHA256, p11api.CKG_MGF1_SHA256, 32
+	case crypto.SHA384:
+		return p11api.CKM_SHA384, p11api.CKG_MGF1_SHA384, 48
+	case crypto.SHA512:
+		return p11api.CKM_SHA512, p11api.CKG_MGF1_SHA512, 64
+	default:
+		return 0, 0, 0
+	}
+}
+func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	hPrivKey, err := kp.privateKeyHandle()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var hMech, mgf, hLen, sLen uint
+	if hMech, mgf, hLen = hashToPSSParams(opts.HashFunc()); hLen == 0 {
+		return nil, keystores.ErrorHandler(fmt.Errorf("hash not supported: %+v, %w", opts.HashFunc(), keystores.ErrOperationNotSupportedByProvider))
+	}
+
+	if pssOpts, ok := opts.(*rsa.PSSOptions); ok {
+		switch pssOpts.SaltLength {
+		case rsa.PSSSaltLengthAuto:
+			sLen = uint((kp.rsaPublicKey.N.BitLen()-1+7)/8 - 2 - int(hLen))
+		case rsa.PSSSaltLengthEqualsHash:
+			sLen = hLen
+		default:
+			sLen = uint(pssOpts.SaltLength)
+		}
+		params := p11api.NewPSSParams(hMech, mgf, sLen)
+		mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_PSS, params)}
+		if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+			return nil, err
+		}
+		if signature, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, digest); err != nil {
+			return nil, keystores.ErrorHandler(err)
+		} else {
+			return signature, nil
+		}
+	} else {
+		/* Calculate T for EMSA-PKCS1-v1_5. */
+		oid := pkcs1Prefix[opts.HashFunc()]
+		t := make([]byte, len(oid)+len(digest))
+		copy(t[0:len(oid)], oid)
+		copy(t[len(oid):], digest)
+		mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS, nil)}
+		if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+			return nil, err
+		}
+		if signature, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, t); err != nil {
+			return nil, keystores.ErrorHandler(err)
+		} else {
+			return signature, nil
+		}
+	}
+}
+
+var pkcs1Prefix = map[crypto.Hash][]byte{
+	crypto.SHA1:   {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14},
+	crypto.SHA224: {0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1c},
+	crypto.SHA256: {0x30, 0x31, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01, 0x05, 0x00, 0x04, 0x20},
+	crypto.SHA384: {0x30, 0x41, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x02, 0x05, 0x00, 0x04, 0x30},
+	crypto.SHA512: {0x30, 0x51, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x03, 0x05, 0x00, 0x04, 0x40},
 }

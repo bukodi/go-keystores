@@ -45,7 +45,11 @@ func (ks *YkKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
 	return algs
 }
 
-func (ks *YkKeyStore) KeyPairs() (kpArray []keystores.KeyPair, errs error) {
+func (ks *YkKeyStore) KeyPairById(id keystores.KeyPairId) keystores.KeyPair {
+	panic("implement me")
+}
+
+func (ks *YkKeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairId]keystores.KeyPair, errs error) {
 	panic("implement me")
 }
 
