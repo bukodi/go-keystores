@@ -175,7 +175,7 @@ func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
 }
 
 func (kp *Pkcs11KeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {
-	panic("implement me")
+	return keystores.ErrorHandler(errors.Errorf("not implemented"))
 }
 
 func (kp *Pkcs11KeyPair) commonPrivateKeyAttributes() *CommonPrivateKeyAttributes {

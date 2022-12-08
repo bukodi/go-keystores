@@ -83,23 +83,30 @@ func TestDloadLib(t *testing.T) {
 	defer lib.Close()
 }
 
-func TestSoftHSM(t *testing.T) {
+func TestSoftHSMWithLowLevelAPI(t *testing.T) {
 	p := p11api.New(softhsm2Lib)
 	err := p.Initialize()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("%+v", err)
+	}
+
+	info, err := p.GetInfo()
+	if err != nil {
+		t.Errorf("%+v", err)
+	} else {
+		t.Logf("Driver info: %+v", info)
 	}
 
 	defer p.Destroy()
 	defer func() {
 		err = p.Finalize()
 		if err != nil {
-			t.Error(err)
+			t.Errorf("%+v", err)
 		}
 	}()
 }
 
-func TestListPkcs11KeyStores(t *testing.T) {
+func TestSoftHSM2KeyStore(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
 	err := keystores.EnsureOpen(p)

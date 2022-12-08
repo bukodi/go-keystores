@@ -3,6 +3,7 @@ package internal
 import (
 	"crypto"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"fmt"
 	"github.com/bukodi/go-keystores"
@@ -34,6 +35,23 @@ func SignVerifyTest(t *testing.T, kp keystores.KeyPair) {
 		t.Errorf("Verify failed: %+v", err)
 	} else {
 		t.Logf("Sign and verify with keypair: %s (ID:%s)", kp.Label(), kp.Id())
+	}
+}
+
+func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
+	digest := sha256.Sum256([]byte("hello world\n"))
+
+	signature, err := kp.Sign(rand.Reader, digest[:], &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Errorf("Sign failed: %+v", err)
+	}
+	err = rsa.VerifyPSS(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature, &rsa.PSSOptions{Hash: crypto.SHA256})
+	// TODO: use this also
+	//err = kp.Verify(signature, digest[:], crypto.SHA256)
+	if err != nil {
+		t.Errorf("Verify failed: %+v", err)
+	} else {
+		t.Logf("RSA PSS sign and verify with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 	}
 }
 
@@ -90,6 +108,11 @@ func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm
 			t.Run("Sign-Verify", func(t *testing.T) {
 				SignVerifyTest(t, kp)
 			})
+			if kp.Algorithm().RSAKeyLength > 0 {
+				t.Run("RSA-PSS Sign-Verify", func(t *testing.T) {
+					SignVerifyRSAPSSTest(t, kp)
+				})
+			}
 		}
 
 		if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
@@ -124,6 +147,9 @@ func KeyPairTests(t *testing.T, ks keystores.KeyStore, tests []KeyPairTestCase) 
 
 			if err != nil && kp.KeyUsage()[keystores.KeyUsageSign] {
 				SignVerifyTest(t, kp)
+				if kp.Algorithm().RSAKeyLength > 0 {
+					SignVerifyRSAPSSTest(t, kp)
+				}
 			}
 
 			if err != nil && kp.KeyUsage()[keystores.KeyUsageDecrypt] {
