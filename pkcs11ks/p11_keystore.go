@@ -168,6 +168,7 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
 	}
 	privateKeyTemplate := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PRIVATE_KEY),
 		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
 		p11api.NewAttribute(p11api.CKA_SIGN, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageSign]))),
 		p11api.NewAttribute(p11api.CKA_DECRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
@@ -182,9 +183,8 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 		kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
 		return kp, keystores.ErrorHandler(err, ks)
 	} else if opts.Algorithm.ECCCurve != nil {
-		//kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
-		//return kp, keystores.ErrorHandler(err, ks)
-		return nil, keystores.ErrorHandler(keystores.ErrOperationNotSupportedByProvider, ks)
+		kp, err := ks.createECCKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
+		return kp, keystores.ErrorHandler(err, ks)
 	} else {
 		return nil, keystores.ErrorHandler(keystores.ErrOperationNotSupportedByProvider, ks)
 	}

@@ -175,6 +175,15 @@ func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
 }
 
 func (kp *Pkcs11KeyPair) Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error) {
+	pubKey := kp.Public()
+	if rsaPub, ok := pubKey.(*rsa.PublicKey); ok {
+		return keystores.ErrorHandler(rsa.VerifyPKCS1v15(rsaPub, opts.HashFunc(), digest, signature))
+	} else if eccPub, ok := pubKey.(*ecdsa.PublicKey); ok {
+		_ = eccPub
+		return keystores.ErrorHandler(errors.Errorf("not implemented"))
+		//ecdsa.Verify(eccPub, )
+	}
+
 	return keystores.ErrorHandler(errors.Errorf("not implemented"))
 }
 

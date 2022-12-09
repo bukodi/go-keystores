@@ -28,11 +28,11 @@ func SignVerifyTest(t *testing.T, kp keystores.KeyPair) {
 
 	signature, err := kp.Sign(rand.Reader, digest[:], crypto.SHA256)
 	if err != nil {
-		t.Errorf("Sign failed: %+v", err)
+		t.Errorf("Sign failed: %#v", err)
 	}
 	err = kp.Verify(signature, digest[:], crypto.SHA256)
 	if err != nil {
-		t.Errorf("Verify failed: %+v", err)
+		t.Errorf("Verify failed: %#v", err)
 	} else {
 		t.Logf("Sign and verify with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 	}
@@ -43,13 +43,13 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 
 	signature, err := kp.Sign(rand.Reader, digest[:], &rsa.PSSOptions{Hash: crypto.SHA256})
 	if err != nil {
-		t.Errorf("Sign failed: %+v", err)
+		t.Errorf("Sign failed: %#v", err)
 	}
 	err = rsa.VerifyPSS(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature, &rsa.PSSOptions{Hash: crypto.SHA256})
 	// TODO: use this also
 	//err = kp.Verify(signature, digest[:], crypto.SHA256)
 	if err != nil {
-		t.Errorf("Verify failed: %+v", err)
+		t.Errorf("Verify failed: %#v", err)
 	} else {
 		t.Logf("RSA PSS sign and verify with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 	}
@@ -57,7 +57,7 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 
 func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
 	//kp.Decrypt()
-	t.Skipf("encrypt-decrypt test not implemented")
+	t.Logf("encrypt-decrypt test not implemented")
 }
 
 type KeyPairTestCase struct {
@@ -67,6 +67,7 @@ type KeyPairTestCase struct {
 }
 
 func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm, keyUsage []keystores.KeyUsage) {
+	t.Helper()
 	t.Run(fmt.Sprintf("%s %v", alg.Name, keyUsage), func(t *testing.T) {
 		genOpts := keystores.GenKeyPairOpts{
 			Algorithm:  alg,
@@ -80,86 +81,50 @@ func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm
 		}
 		var err error
 		var kp keystores.KeyPair
-		t.Run("CreateKeyPair", func(t *testing.T) {
-			if kp, err = ks.CreateKeyPair(genOpts); err != nil {
-				t.Fatalf("CreateKeyPair() faield: %+v", err)
-			}
-		})
+		if kp, err = ks.CreateKeyPair(genOpts); err != nil {
+			t.Fatalf("CreateKeyPair() faield: %#v", err)
+		} else {
+			t.Logf("Key pair created.")
+		}
 
-		defer t.Run("Destroy", func(t *testing.T) {
+		defer func() {
 			if err := kp.Destroy(); err != nil {
-				t.Errorf("Destroy() faield: %+v", err)
+				t.Errorf("Destroy() faield: %#v", err)
 			} else {
 				t.Logf("%s destroyed", kp.Label())
 			}
-		})
+		}()
 
-		t.Run("Check attributes", func(t *testing.T) {
-			if !reflect.DeepEqual(kp.KeyUsage(), genOpts.KeyUsage) {
-				t.Errorf("key usage mismatch. Expected %v, actual %v", genOpts.KeyUsage, kp.KeyUsage())
-			}
+		if !reflect.DeepEqual(kp.Algorithm(), genOpts.Algorithm) {
+			t.Errorf("Algorithm mismatch. Expected %v, actual %v", genOpts.Algorithm, kp.Algorithm())
+		} else {
+			t.Logf("Key Algorithm checked")
+		}
 
-			if kp.Label() != genOpts.Label {
-				t.Errorf("label mismatch. Expected %v, actual %v", genOpts.Label, kp.Label())
-			}
-		})
+		if !reflect.DeepEqual(kp.KeyUsage(), genOpts.KeyUsage) {
+			t.Errorf("key usage mismatch. Expected %v, actual %v", genOpts.KeyUsage, kp.KeyUsage())
+		} else {
+			t.Logf("KeyUsage checked")
+		}
+
+		if kp.Label() != genOpts.Label {
+			t.Errorf("label mismatch. Expected %v, actual %v", genOpts.Label, kp.Label())
+		} else {
+			t.Logf("Label checked")
+		}
 
 		if kp.KeyUsage()[keystores.KeyUsageSign] {
-			t.Run("Sign-Verify", func(t *testing.T) {
-				SignVerifyTest(t, kp)
-			})
+			SignVerifyTest(t, kp)
+
 			if kp.Algorithm().RSAKeyLength > 0 {
-				t.Run("RSA-PSS Sign-Verify", func(t *testing.T) {
-					SignVerifyRSAPSSTest(t, kp)
-				})
+				SignVerifyRSAPSSTest(t, kp)
 			}
 		}
 
 		if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
-			t.Run("Encrypt-Decrypt", func(t *testing.T) {
-				EncryptDecryptTest(t, kp)
-			})
+			EncryptDecryptTest(t, kp)
 		}
 
 	})
 
-}
-
-func KeyPairTests(t *testing.T, ks keystores.KeyStore, tests []KeyPairTestCase) {
-	type args struct {
-		pubKey crypto.PublicKey
-	}
-	for _, tt := range tests {
-		if tt.Name == "" {
-			tt.Name = tt.GenOpts.Algorithm.Name
-		}
-
-		t.Run(tt.Name, func(t *testing.T) {
-			kp, err := ks.CreateKeyPair(tt.GenOpts)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer func() {
-				if err := kp.Destroy(); err != nil {
-					t.Fatal(err)
-				}
-			}()
-
-			if err != nil && kp.KeyUsage()[keystores.KeyUsageSign] {
-				SignVerifyTest(t, kp)
-				if kp.Algorithm().RSAKeyLength > 0 {
-					SignVerifyRSAPSSTest(t, kp)
-				}
-			}
-
-			if err != nil && kp.KeyUsage()[keystores.KeyUsageDecrypt] {
-				EncryptDecryptTest(t, kp)
-			}
-
-			if (err != nil) != tt.WantErr {
-				t.Errorf("KeyUsage test error = %v, WantErr %v", err, tt.WantErr)
-				return
-			}
-		})
-	}
 }

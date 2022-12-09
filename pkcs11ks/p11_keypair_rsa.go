@@ -24,6 +24,8 @@ func (ks *Pkcs11KeyStore) newRSAKeyPair(privKeyObject *RSAPrivateKeyAttributes, 
 	kp.rsaPublicKey.N = kp.rsaPrivKeyAttrs.CKA_MODULUS
 	kp.rsaPublicKey.E = int((*big.Int)(kp.rsaPrivKeyAttrs.CKA_PUBLIC_EXPONENT).Int64())
 
+	kp.keyAlgorithm = keystores.KeyAlgRSA(kp.rsaPublicKey.Size() * 8)
+
 	id, err := keystores.GenerateKeyPairIdFromPubKey(kp.rsaPublicKey)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
