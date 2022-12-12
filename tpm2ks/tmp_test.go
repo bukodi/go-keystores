@@ -2,36 +2,74 @@ package tpm2ks
 
 import (
 	"bytes"
-	"crypto/x509"
-	"encoding/pem"
+	"crypto"
 	"fmt"
+	"github.com/bukodi/go-keystores"
+	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/credactivation"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"testing"
 )
 
-func TestTPM2LowLevel(t *testing.T) {
-	EndorsementKey()
-	StorageRootKey()
-	AttestestationIdentityKey()
+var tpmFile io.ReadWriteCloser
+
+func openTpm() (io.ReadWriteCloser, error) {
+	if f, err := os.OpenFile("/dev/tpmrm0", os.O_RDWR, 0); err == nil {
+		return f, nil
+	} else if os.IsNotExist(err) {
+		// Get simulated TPM.
+		if sim, err := simulator.Get(); err != nil {
+			return nil, fmt.Errorf("failed to get TPM simulator: %w", err)
+		} else {
+			return sim, nil
+		}
+	} else {
+		return nil, fmt.Errorf("opening tpm: %w", err)
+	}
 }
 
-func EndorsementKey() {
-	f, err := os.OpenFile("/dev/tpmrm0", os.O_RDWR, 0)
+func TestTPM2LowLevel(t *testing.T) {
+	f, err := openTpm()
 	if err != nil {
-		log.Fatalf("opening tpm: %v", err)
+		t.Fatalf("%#v", err)
 	}
 	defer f.Close()
-
 	if manu, err := tpm2.GetManufacturer(f); err != nil {
 		log.Fatalf("opening tpm: %v", err)
 	} else {
 		fmt.Printf("Manufacturer: %s\n%v\n", string(manu), manu)
 	}
 
+	ekCtx, _, err := EndorsementKey(f)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	srkCtx, err := StorageRootKey(f)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	aikCtx, aikPubBlob, aikNameData, err := AttestestationIdentityKey(f, srkCtx)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	credBlob, encSecret, err := CreateChallenge(f, ekCtx, aikPubBlob, aikNameData)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	err = StartSession(f, ekCtx, aikCtx, credBlob, encSecret)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+}
+
+func EndorsementKey(f io.ReadWriter) (ekCtx []byte, ekPub crypto.PublicKey, err error) {
 	tmpl := tpm2.Public{
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,
@@ -62,29 +100,15 @@ func EndorsementKey() {
 	if err != nil {
 		log.Fatalf("creating ek: %v", err)
 	}
+	defer tpm2.FlushContext(f, ek)
 	out, err := tpm2.ContextSave(f, ek)
 	if err != nil {
-		log.Fatalf("saving context: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
-	if err := ioutil.WriteFile("ek.ctx", out, 0644); err != nil {
-		log.Fatalf("writing context: %v", err)
-	}
-
-	pubDER, err := x509.MarshalPKIXPublicKey(pub)
-	if err != nil {
-		log.Fatalf("encoding public key: %v", err)
-	}
-	b := &pem.Block{Type: "PUBLIC KEY", Bytes: pubDER}
-	pem.Encode(os.Stdout, b)
+	return out, pub, nil
 }
 
-func StorageRootKey() {
-	f, err := os.OpenFile("/dev/tpmrm0", os.O_RDWR, 0)
-	if err != nil {
-		log.Fatalf("opening tpm: %v", err)
-	}
-	defer f.Close()
-
+func StorageRootKey(f io.ReadWriter) (srkCtx []byte, err error) {
 	tmpl := tpm2.Public{
 		Type:    tpm2.AlgRSA,
 		NameAlg: tpm2.AlgSHA256,
@@ -104,41 +128,23 @@ func StorageRootKey() {
 
 	srk, _, err := tpm2.CreatePrimary(f, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", tmpl)
 	if err != nil {
-		log.Fatalf("creating srk: %v", err)
+		return nil, keystores.ErrorHandler(err)
 	}
+	defer tpm2.FlushContext(f, srk)
+
 	out, err := tpm2.ContextSave(f, srk)
 	if err != nil {
-		log.Fatalf("saving context: %v", err)
+		return nil, keystores.ErrorHandler(err)
 	}
-	if err := ioutil.WriteFile("srk.ctx", out, 0644); err != nil {
-		log.Fatalf("writing context: %v", err)
-	}
+	return out, nil
 }
 
-func AttestestationIdentityKey() {
-	f, err := os.OpenFile("/dev/tpmrm0", os.O_RDWR, 0)
-	if err != nil {
-		log.Fatalf("opening tpm: %v", err)
-	}
-	defer f.Close()
-
-	srkCtx, err := ioutil.ReadFile("srk.ctx")
-	if err != nil {
-		log.Fatalf("read srk: %v", err)
-	}
+func AttestestationIdentityKey(f io.ReadWriter, srkCtx []byte) (aikCtx []byte, aikPubBlob []byte, aikNameData []byte, err error) {
 	srk, err := tpm2.ContextLoad(f, srkCtx)
 	if err != nil {
-		log.Fatalf("load srk: %v", err)
+		return nil, nil, nil, keystores.ErrorHandler(err)
 	}
-
-	ekCtx, err := ioutil.ReadFile("ek.ctx")
-	if err != nil {
-		log.Fatalf("read ek: %v", err)
-	}
-	ek, err := tpm2.ContextLoad(f, ekCtx)
-	if err != nil {
-		log.Fatalf("load ek: %v", err)
-	}
+	defer tpm2.FlushContext(f, srk)
 
 	tmpl := tpm2.Public{
 		Type:    tpm2.AlgECC,
@@ -159,65 +165,86 @@ func AttestestationIdentityKey() {
 		},
 	}
 
-	privBlob, pubBlob, _, _, _, err := tpm2.CreateKey(f, srk, tpm2.PCRSelection{}, "", "", tmpl)
+	aikPrivBlob, aikPubBlob, _, _, _, err := tpm2.CreateKey(f, srk, tpm2.PCRSelection{}, "", "", tmpl)
 	if err != nil {
-		log.Fatalf("create aik: %v", err)
+		return nil, nil, nil, keystores.ErrorHandler(err)
 	}
-	aik, nameData, err := tpm2.Load(f, srk, "", pubBlob, privBlob)
+	aik, aikNameData, err := tpm2.Load(f, srk, "", aikPubBlob, aikPrivBlob)
 	if err != nil {
-		log.Fatalf("load aik: %v", err)
+		return nil, nil, nil, keystores.ErrorHandler(err)
 	}
+	defer tpm2.FlushContext(f, aik)
 
-	aikCtx, err := tpm2.ContextSave(f, aik)
+	aikCtx, err = tpm2.ContextSave(f, aik)
 	if err != nil {
-		log.Fatalf("saving context: %v", err)
+		return nil, nil, nil, keystores.ErrorHandler(err)
 	}
-	if err := ioutil.WriteFile("aik.ctx", aikCtx, 0644); err != nil {
-		log.Fatalf("writing context: %v", err)
-	}
+	return aikCtx, aikPubBlob, aikNameData, nil
+}
 
+func CreateChallenge(f io.ReadWriter, ekCtx []byte, aikPubBlob, aikNameData []byte) (credBlob, encSecret []byte, err error) {
+	ek, err := tpm2.ContextLoad(f, ekCtx)
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, ek)
 	ekTPMPub, _, _, err := tpm2.ReadPublic(f, ek)
 	if err != nil {
-		log.Fatalf("read ek public: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
 	ekPub, err := ekTPMPub.Key()
 	if err != nil {
-		log.Fatalf("decode ek public key: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
 
 	// Verify digest matches the public blob that was provided.
-	name, err := tpm2.DecodeName(bytes.NewBuffer(nameData))
+	name, err := tpm2.DecodeName(bytes.NewBuffer(aikNameData))
 	if err != nil {
-		log.Fatalf("unpacking name: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
 	if name.Digest == nil {
-		log.Fatalf("name was not a digest")
+		return nil, nil, keystores.ErrorHandler(fmt.Errorf("name was not a digest"))
 	}
 	h, err := name.Digest.Alg.Hash()
 	if err != nil {
-		log.Fatalf("failed to get name hash: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
 	pubHash := h.New()
-	pubHash.Write(pubBlob)
+	pubHash.Write(aikPubBlob)
 	pubDigest := pubHash.Sum(nil)
 	if !bytes.Equal(name.Digest.Value, pubDigest) {
-		log.Fatalf("name was not for public blob")
+		return nil, nil, keystores.ErrorHandler(fmt.Errorf("name was not for public blob"))
 	}
 
 	// Inspect key attributes.
-	pub, err := tpm2.DecodePublic(pubBlob)
+	pub, err := tpm2.DecodePublic(aikPubBlob)
 	if err != nil {
-		log.Fatalf("decode public blob: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
 	fmt.Printf("Key attributes: 0x08%x\n", pub.Attributes)
 
 	// Generate a challenge for the name.
 	secret := []byte("The quick brown fox jumps over the lazy dog")
 	symBlockSize := 16
-	credBlob, encSecret, err := credactivation.Generate(name.Digest, ekPub, symBlockSize, secret)
+	credBlob, encSecret, err = credactivation.Generate(name.Digest, ekPub, symBlockSize, secret)
 	if err != nil {
-		log.Fatalf("generate credential: %v", err)
+		return nil, nil, keystores.ErrorHandler(err)
 	}
+	return credBlob, encSecret, nil
+}
+
+func StartSession(f io.ReadWriter, ekCtx []byte, aikCtx []byte, credBlob, encSecret []byte) (err error) {
+	ek, err := tpm2.ContextLoad(f, ekCtx)
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, ek)
+
+	aik, err := tpm2.ContextLoad(f, aikCtx)
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, aik)
 
 	session, _, err := tpm2.StartAuthSession(f,
 		tpm2.HandleNull,
@@ -228,18 +255,20 @@ func AttestestationIdentityKey() {
 		tpm2.AlgNull,
 		tpm2.AlgSHA256)
 	if err != nil {
-		log.Fatalf("creating auth session: %v", err)
+		return keystores.ErrorHandler(err)
 	}
+	defer tpm2.FlushContext(f, session)
 
 	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
 	if _, _, err := tpm2.PolicySecret(f, tpm2.HandleEndorsement, auth, session, nil, nil, nil, 0); err != nil {
-		log.Fatalf("policy secret failed: %v", err)
+		return keystores.ErrorHandler(err)
 	}
 
 	auths := []tpm2.AuthCommand{auth, {Session: session, Attributes: tpm2.AttrContinueSession}}
 	out, err := tpm2.ActivateCredentialUsingAuth(f, auths, aik, ek, credBlob[2:], encSecret[2:])
 	if err != nil {
-		log.Fatalf("activate credential: %v", err)
+		return keystores.ErrorHandler(err)
 	}
 	fmt.Printf("%s\n", out)
+	return nil
 }

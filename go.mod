@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/go-piv/piv-go v1.7.0
 	github.com/google/go-tpm v0.3.3
+	github.com/google/go-tpm-tools v0.2.0
 	github.com/miekg/pkcs11 v1.0.3
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.4.0
 	github.com/pkg/errors v0.9.1
