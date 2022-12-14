@@ -3,6 +3,9 @@ package tpm2ks
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/google/go-tpm-tools/simulator"
@@ -10,14 +13,17 @@ import (
 	"github.com/google/go-tpm/tpm2/credactivation"
 	"io"
 	"log"
+	"math/big"
 	"os"
 	"testing"
 )
 
+const PASSWORD = "" //"Passw0rd"
+
 var tpmFile io.ReadWriteCloser
 
 func openTpm() (io.ReadWriteCloser, error) {
-	if f, err := os.OpenFile("/dev/tpmrm0", os.O_RDWR, 0); err == nil {
+	if f, err := os.OpenFile("/dev/tpmrm0x", os.O_RDWR, 0); err == nil {
 		return f, nil
 	} else if os.IsNotExist(err) {
 		// Get simulated TPM.
@@ -64,6 +70,29 @@ func TestTPM2LowLevel(t *testing.T) {
 	}
 
 	err = StartSession(f, ekCtx, aikCtx, credBlob, encSecret)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	appKeyCtx, appKeyHash, appKeyTicket, err := CreateAppKey(f, srkCtx)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+	_ = appKeyCtx
+
+	attestData, sigData, err := CertifyAppKey(f, appKeyCtx, appKeyHash, appKeyTicket, aikCtx)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	t.Logf("Sig data:\n%s\n", base64.StdEncoding.EncodeToString(sigData))
+
+	aikPub, err := getPublic(f, aikCtx)
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+
+	err = VerifyAttestation(attestData, sigData, aikPub)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
@@ -126,7 +155,7 @@ func StorageRootKey(f io.ReadWriter) (srkCtx []byte, err error) {
 		},
 	}
 
-	srk, _, err := tpm2.CreatePrimary(f, tpm2.HandleOwner, tpm2.PCRSelection{}, "", "", tmpl)
+	srk, _, err := tpm2.CreatePrimary(f, tpm2.HandleOwner, tpm2.PCRSelection{}, "", PASSWORD, tmpl)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
@@ -165,11 +194,11 @@ func AttestestationIdentityKey(f io.ReadWriter, srkCtx []byte) (aikCtx []byte, a
 		},
 	}
 
-	aikPrivBlob, aikPubBlob, _, _, _, err := tpm2.CreateKey(f, srk, tpm2.PCRSelection{}, "", "", tmpl)
+	aikPrivBlob, aikPubBlob, _, _, _, err := tpm2.CreateKey(f, srk, tpm2.PCRSelection{}, PASSWORD, PASSWORD, tmpl)
 	if err != nil {
 		return nil, nil, nil, keystores.ErrorHandler(err)
 	}
-	aik, aikNameData, err := tpm2.Load(f, srk, "", aikPubBlob, aikPrivBlob)
+	aik, aikNameData, err := tpm2.Load(f, srk, PASSWORD, aikPubBlob, aikPrivBlob)
 	if err != nil {
 		return nil, nil, nil, keystores.ErrorHandler(err)
 	}
@@ -224,7 +253,8 @@ func CreateChallenge(f io.ReadWriter, ekCtx []byte, aikPubBlob, aikNameData []by
 	fmt.Printf("Key attributes: 0x08%x\n", pub.Attributes)
 
 	// Generate a challenge for the name.
-	secret := []byte("The quick brown fox jumps over the lazy dog")
+	//secret := []byte("The quick brown fox jumps over the lazy dog")
+	secret := []byte("123")
 	symBlockSize := 16
 	credBlob, encSecret, err = credactivation.Generate(name.Digest, ekPub, symBlockSize, secret)
 	if err != nil {
@@ -270,5 +300,128 @@ func StartSession(f io.ReadWriter, ekCtx []byte, aikCtx []byte, credBlob, encSec
 		return keystores.ErrorHandler(err)
 	}
 	fmt.Printf("%s\n", out)
+	return nil
+}
+
+func CreateAppKey(f io.ReadWriter, srkCtx []byte) (appKeyCtx []byte, appKeyHash []byte, appKeyTicket tpm2.Ticket, err error) {
+	srk, err := tpm2.ContextLoad(f, srkCtx)
+	if err != nil {
+		return nil, nil, appKeyTicket, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, srk)
+
+	// Same as the AIK, but without the "restricted" flag.
+	tmpl := tpm2.Public{
+		Type:    tpm2.AlgECC,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | // Key can't leave the TPM.
+			tpm2.FlagFixedParent | // Key can't change parent.
+			tpm2.FlagSensitiveDataOrigin | // Key created by the TPM (not imported).
+			tpm2.FlagUserWithAuth | // Uses (empty) password.
+			tpm2.FlagSign, // Key can be used to sign data.
+		ECCParameters: &tpm2.ECCParams{
+			Sign:    &tpm2.SigScheme{Alg: tpm2.AlgECDSA, Hash: tpm2.AlgSHA256},
+			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
+		},
+	}
+
+	privBlob, pubBlob, _, appKeyHash, appKeyTicket, err := tpm2.CreateKey(f, srk, tpm2.PCRSelection{}, "", "", tmpl)
+	if err != nil {
+		return nil, nil, appKeyTicket, keystores.ErrorHandler(err)
+	}
+	appKey, _, err := tpm2.Load(f, srk, "", pubBlob, privBlob)
+	if err != nil {
+		return nil, nil, appKeyTicket, keystores.ErrorHandler(err)
+	}
+
+	// Write key context to disk.
+	appKeyCtx, err = tpm2.ContextSave(f, appKey)
+	if err != nil {
+		return nil, nil, appKeyTicket, keystores.ErrorHandler(err)
+	}
+
+	return appKeyCtx, appKeyHash, appKeyTicket, nil
+}
+
+func CertifyAppKey(f io.ReadWriter, appKeyCtx []byte, appKeyHash []byte, appKeyTicket tpm2.Ticket, aikCtx []byte) (attestData []byte, sigData []byte, err error) {
+	appKey, err := tpm2.ContextLoad(f, appKeyCtx)
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, appKey)
+	aik, err := tpm2.ContextLoad(f, aikCtx)
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, aik)
+
+	aikTPMPub, _, _, err := tpm2.ReadPublic(f, aik)
+	if err != nil {
+		log.Fatalf("read aik pub: %v", err)
+	}
+	sigParams := aikTPMPub.ECCParameters.Sign
+	aikPub, err := aikTPMPub.Key()
+	if err != nil {
+		log.Fatalf("getting aik public key")
+	}
+
+	attestData, sigData, err = tpm2.CertifyCreation(f, "", appKey, aik, nil, appKeyHash, *sigParams, appKeyTicket)
+	if err != nil {
+		log.Fatalf("certify creation: %v", err)
+	}
+	_ = aikPub
+	return attestData, sigData, nil
+}
+
+func getPublic(f io.ReadWriter, ctx []byte) (pubKey crypto.PublicKey, err error) {
+	tpmKey, err := tpm2.ContextLoad(f, ctx)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, tpmKey)
+
+	tpmPubKey, _, _, err := tpm2.ReadPublic(f, tpmKey)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	pubKey, err = tpmPubKey.Key()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	return pubKey, nil
+}
+
+func VerifyAttestation(attestData []byte, sigData []byte, aikPub crypto.PublicKey) (err error) {
+	aikECDSAPub, ok := aikPub.(*ecdsa.PublicKey)
+	if !ok {
+		return keystores.ErrorHandler(fmt.Errorf("expected ecdsa public key, got: %T", aikPub))
+	}
+	if len(sigData) != 72 {
+		return keystores.ErrorHandler(fmt.Errorf("expected ecdsa signature"))
+	}
+
+	type ECDSASignature struct {
+		R, S *big.Int
+	}
+	sig := &ECDSASignature{}
+	/*_, err = asn1.Unmarshal(sigData, sig)
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}*/
+
+	sig.R = big.NewInt(0)
+	sig.S = big.NewInt(0)
+	sig.R.SetBytes(sigData[6:38])
+	sig.S.SetBytes(sigData[39:71])
+
+	// Verify attested data is signed by the EK public key.
+	digest := sha256.Sum256(attestData)
+	if !ecdsa.Verify(aikECDSAPub, digest[:], sig.R, sig.S) {
+		return keystores.ErrorHandler(fmt.Errorf("signature didn't match"))
+	}
 	return nil
 }
