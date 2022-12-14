@@ -145,6 +145,35 @@ func parseEcPoint(bytes []byte, c elliptic.Curve) (*big.Int, *big.Int, error) {
 	return x, y, nil
 }
 
-func (kp *Pkcs11KeyPair) ecdsaSign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
-	return nil, keystores.ErrOperationNotSupportedByKeyStore
+func (kp *Pkcs11KeyPair) ecdsaSign(_ io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	hPrivKey, err := kp.privateKeyHandle()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_ECDSA, nil)}
+	if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var sigBytes []byte
+	if sigBytes, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, digest); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	type ECDSASignature struct {
+		R, S *big.Int
+	}
+	asn1Sig := ECDSASignature{
+		R: big.NewInt(0),
+		S: big.NewInt(0),
+	}
+	asn1Sig.R.SetBytes(sigBytes[0 : len(sigBytes)/2])
+	asn1Sig.S.SetBytes(sigBytes[len(sigBytes)/2:])
+
+	if asn1Bytes, err := asn1.Marshal(asn1Sig); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	} else {
+		return asn1Bytes, nil
+	}
 }

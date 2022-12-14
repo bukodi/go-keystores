@@ -143,7 +143,7 @@ func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.Sign
 		copy(t[len(oid):], digest)
 		mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS, nil)}
 		if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
-			return nil, err
+			return nil, keystores.ErrorHandler(err)
 		}
 		if signature, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, t); err != nil {
 			return nil, keystores.ErrorHandler(err)
