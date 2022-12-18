@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"github.com/bukodi/go-keystores"
+	"github.com/google/go-tpm-tools/client"
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/credactivation"
@@ -35,6 +38,31 @@ func openTpm() (io.ReadWriteCloser, error) {
 	} else {
 		return nil, fmt.Errorf("opening tpm: %w", err)
 	}
+}
+
+func TestECDSASign(t *testing.T) {
+	f, err := openTpm()
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+	defer f.Close()
+
+	srkCtx, err := StorageRootKeyECP256(f)
+	if err != nil {
+		t.Fatalf("%s\n%#v", err.Error(), err)
+	}
+
+	pk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keyCtx, err := ImportECDSAKey(f, srkCtx, pk)
+	if err != nil {
+		t.Fatalf("%s\n%#v", err.Error(), err)
+	}
+
+	_ = keyCtx
 }
 
 func TestTPM2LowLevel(t *testing.T) {
@@ -78,7 +106,17 @@ func TestTPM2LowLevel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
-	_ = appKeyCtx
+
+	digest := sha256.Sum256([]byte("Hello world!"))
+	sigBytes, pubKey, err := SignWithAppKey(f, appKeyCtx, digest[:])
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+	if ecdsa.VerifyASN1(pubKey.(*ecdsa.PublicKey), digest[:], sigBytes) {
+		t.Log("Signatire verified")
+	} else {
+		t.Fatalf("Verification failed")
+	}
 
 	attestData, sigData, err := CertifyAppKey(f, appKeyCtx, appKeyHash, appKeyTicket, aikCtx)
 	if err != nil {
@@ -154,6 +192,41 @@ func StorageRootKey(f io.ReadWriter) (srkCtx []byte, err error) {
 			ModulusRaw: make([]byte, 256),
 		},
 	}
+
+	srk, _, err := tpm2.CreatePrimary(f, tpm2.HandleOwner, tpm2.PCRSelection{}, "", PASSWORD, tmpl)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, srk)
+
+	out, err := tpm2.ContextSave(f, srk)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	return out, nil
+}
+
+func StorageRootKeyECP256(f io.ReadWriter) (srkCtx []byte, err error) {
+	tmpl := client.SRKTemplateECC()
+	/*tmpl := tpm2.Public{
+		Type:    tpm2.AlgECC,
+		NameAlg: tpm2.AlgSHA256,
+		Attributes: tpm2.FlagFixedTPM | // Key can't leave the TPM.
+			tpm2.FlagFixedParent | // Key can't change parent.
+			tpm2.FlagSensitiveDataOrigin | // Key created by the TPM (not imported).
+			tpm2.FlagUserWithAuth | // Uses (empty) password.
+			tpm2.FlagNoDA | // This flag doesn't do anything, but it's in the spec.
+			tpm2.FlagRestricted | // Key used for TPM challenges, not general decryption.
+			tpm2.FlagDecrypt, // Key can be used to decrypt data.
+		ECCParameters: &tpm2.ECCParams{
+			Sign:    &tpm2.SigScheme{Alg: tpm2.AlgECDSA, Hash: tpm2.AlgSHA256},
+			CurveID: tpm2.CurveNISTP256,
+			Point: tpm2.ECPoint{
+				XRaw: make([]byte, 32),
+				YRaw: make([]byte, 32),
+			},
+		},
+	}*/
 
 	srk, _, err := tpm2.CreatePrimary(f, tpm2.HandleOwner, tpm2.PCRSelection{}, "", PASSWORD, tmpl)
 	if err != nil {
@@ -303,6 +376,47 @@ func StartSession(f io.ReadWriter, ekCtx []byte, aikCtx []byte, credBlob, encSec
 	return nil
 }
 
+func ImportECDSAKey(f io.ReadWriter, srkCtx []byte, pk *ecdsa.PrivateKey) (impKeyCtx []byte, err error) {
+	srk, err := tpm2.ContextLoad(f, srkCtx)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, srk)
+
+	public := tpm2.Public{
+		Type:       tpm2.AlgECC,
+		NameAlg:    tpm2.AlgSHA256,
+		Attributes: tpm2.FlagSign | tpm2.FlagSensitiveDataOrigin | tpm2.FlagUserWithAuth,
+		ECCParameters: &tpm2.ECCParams{
+			Sign: &tpm2.SigScheme{
+				Alg:  tpm2.AlgECDSA,
+				Hash: tpm2.AlgSHA256,
+			},
+			CurveID: tpm2.CurveNISTP256,
+			Point:   tpm2.ECPoint{XRaw: pk.PublicKey.X.Bytes(), YRaw: pk.PublicKey.Y.Bytes()},
+		},
+	}
+	private := tpm2.Private{
+		Type:      tpm2.AlgECC,
+		Sensitive: pk.D.Bytes(),
+	}
+
+	subjectHandle, _, err := tpm2.LoadExternal(f, public, private, srk)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	defer tpm2.FlushContext(f, subjectHandle)
+
+	// Write key context to disk.
+	impKeyCtx, err = tpm2.ContextSave(f, subjectHandle)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	return impKeyCtx, nil
+}
+
 func CreateAppKey(f io.ReadWriter, srkCtx []byte) (appKeyCtx []byte, appKeyHash []byte, appKeyTicket tpm2.Ticket, err error) {
 	srk, err := tpm2.ContextLoad(f, srkCtx)
 	if err != nil {
@@ -345,6 +459,36 @@ func CreateAppKey(f io.ReadWriter, srkCtx []byte) (appKeyCtx []byte, appKeyHash 
 	}
 
 	return appKeyCtx, appKeyHash, appKeyTicket, nil
+}
+
+func SignWithAppKey(f io.ReadWriter, appKeyCtx []byte, digest []byte) (sigData []byte, pubKey crypto.PublicKey, err error) {
+	appKey, err := tpm2.ContextLoad(f, appKeyCtx)
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+	defer tpm2.FlushContext(f, appKey)
+
+	tpmPub, name, qname, err := tpm2.ReadPublic(f, appKey)
+	log.Printf("Name: %s, QName: %s\n", string(name), string(qname))
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+	sigParams := tpmPub.ECCParameters.Sign
+	cryptoPub, err := tpmPub.Key()
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+
+	sig, err := tpm2.Sign(f, appKey, PASSWORD, digest, nil, sigParams)
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+
+	sigBytes, err := sig.Encode()
+	if err != nil {
+		return nil, nil, keystores.ErrorHandler(err)
+	}
+	return sigBytes, cryptoPub, nil
 }
 
 func CertifyAppKey(f io.ReadWriter, appKeyCtx []byte, appKeyHash []byte, appKeyTicket tpm2.Ticket, aikCtx []byte) (attestData []byte, sigData []byte, err error) {
@@ -404,6 +548,11 @@ func VerifyAttestation(attestData []byte, sigData []byte, aikPub crypto.PublicKe
 		return keystores.ErrorHandler(fmt.Errorf("expected ecdsa signature"))
 	}
 
+	digest := sha256.Sum256(attestData)
+	if !ecdsa.VerifyASN1(aikECDSAPub, digest[:], sigData) {
+		return keystores.ErrorHandler(fmt.Errorf("signature didn't match"))
+	}
+
 	type ECDSASignature struct {
 		R, S *big.Int
 	}
@@ -419,7 +568,6 @@ func VerifyAttestation(attestData []byte, sigData []byte, aikPub crypto.PublicKe
 	sig.S.SetBytes(sigData[39:71])
 
 	// Verify attested data is signed by the EK public key.
-	digest := sha256.Sum256(attestData)
 	if !ecdsa.Verify(aikECDSAPub, digest[:], sig.R, sig.S) {
 		return keystores.ErrorHandler(fmt.Errorf("signature didn't match"))
 	}
