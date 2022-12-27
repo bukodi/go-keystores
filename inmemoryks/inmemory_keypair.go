@@ -148,17 +148,18 @@ func (i *InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.Signer
 }
 
 func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
-	if rsaKey, ok := i.privKey.(rsa.PrivateKey); ok {
+	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
 		return rsaKey.Decrypt(rand, msg, opts)
 	} else if _, ok := i.privKey.(ecdsa.PrivateKey); ok {
 		// TODO: https://asecuritysite.com/encryption/goecdh
-		panic(keystores.ErrorHandler(fmt.Errorf("not implemented operation")))
+		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	} else if _, ok := i.privKey.(ed25519.PrivateKey); ok {
 		// TODO: rfc7748
-		panic(keystores.ErrorHandler(fmt.Errorf("unsupported operation")))
+		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	} else {
-		panic(keystores.ErrorHandler(fmt.Errorf("unsupported algorithm")))
+		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	}
+	return
 }
 
 func (i *InMemoryKeyPair) ExportPrivate() (key crypto.PrivateKey, err error) {

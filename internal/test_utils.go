@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -56,8 +57,26 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 }
 
 func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
-	//kp.Decrypt()
-	t.Skipf("encrypt-decrypt test not implemented")
+	plainText := []byte("Hello world!")
+	pub := kp.Public()
+	if rsaPub, ok := pub.(*rsa.PublicKey); ok {
+		cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, rsaPub, plainText)
+		if err != nil {
+			t.Errorf("Encrypt failed: %#v", err)
+			return
+		}
+		plainText2, err := kp.Decrypt(rand.Reader, cipherText, nil)
+		if err != nil {
+			t.Errorf("Decrypt failed: %#v", err)
+			return
+		}
+		if !bytes.Equal(plainText, plainText2) {
+			t.Errorf("Decrypt failed. Expected %v, actual: %v", plainText, plainText2)
+			return
+		}
+	} else {
+		t.Skipf("encrypt-decrypt for %T key type not implemented", pub)
+	}
 }
 
 type KeyPairTestCase struct {
