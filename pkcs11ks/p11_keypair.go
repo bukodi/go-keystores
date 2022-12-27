@@ -136,12 +136,22 @@ func (kp *Pkcs11KeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerO
 	} else if kp.eccPublicKey != nil {
 		return kp.ecdsaSign(rand, digest, opts)
 	} else {
-		panic("implement me")
+		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
 	}
 }
 
-func (kp *Pkcs11KeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
-	panic("implement me")
+func (kp *Pkcs11KeyPair) Decrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
+	if kp.rsaPublicKey != nil {
+		if plaintext, err := kp.rsaDecrypt(rand, ciphertext, opts); err != nil {
+			return nil, keystores.ErrorHandler(err)
+		} else {
+			return plaintext, nil
+		}
+	} else if kp.eccPublicKey != nil {
+		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
+	} else {
+		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
+	}
 }
 
 func (kp *Pkcs11KeyPair) ExportPrivate() (privKey crypto.PrivateKey, err error) {

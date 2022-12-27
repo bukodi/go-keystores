@@ -153,6 +153,41 @@ func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.Sign
 	}
 }
 
+func (kp *Pkcs11KeyPair) rsaDecrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
+	hPrivKey, err := kp.privateKeyHandle()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	var mech []*p11api.Mechanism
+	if opts == nil {
+		mech = []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS, nil)}
+	} else if pkcsOpts, ok := opts.(*rsa.PKCS1v15DecryptOptions); ok {
+		if pkcsOpts.SessionKeyLen != 0 {
+			return nil, keystores.ErrorHandler(fmt.Errorf("unsupported RSA PKCS1v15 option"))
+		}
+		mech = []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS, nil)}
+	} else if oaepOpts, ok := opts.(*rsa.OAEPOptions); ok {
+		var hMech, mgf, hLen uint
+		if hMech, mgf, hLen = hashToPSSParams(oaepOpts.Hash); hLen == 0 {
+			return nil, keystores.ErrorHandler(fmt.Errorf("hash not supported: %+v, %w", oaepOpts.Hash, keystores.ErrOperationNotSupportedByProvider))
+		}
+
+		mechParams := p11api.NewOAEPParams(hMech, mgf, p11api.CKZ_DATA_SPECIFIED, oaepOpts.Label)
+		//TODO: mechParams = p11api.NewOAEPParams(p11api.CKM_SHA3_256, p11api.CKG_MGF1_SHA256, p11api.CKZ_DATA_SPECIFIED, nil)
+		mech = []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_OAEP, mechParams)}
+	} else {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported RSA option type: %T", opts))
+	}
+	if err := kp.keyStore.provider.pkcs11Ctx.DecryptInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	if plaintext, err := kp.keyStore.provider.pkcs11Ctx.Decrypt(kp.keyStore.hSession, ciphertext); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	} else {
+		return plaintext, nil
+	}
+}
+
 var pkcs1Prefix = map[crypto.Hash][]byte{
 	crypto.SHA1:   {0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14},
 	crypto.SHA224: {0x30, 0x2d, 0x30, 0x0d, 0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x04, 0x05, 0x00, 0x04, 0x1c},

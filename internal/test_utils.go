@@ -56,23 +56,53 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 	}
 }
 
+func rsaEncryptDecryptPKCSv15(kp keystores.KeyPair, plainText []byte) error {
+	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, kp.Public().(*rsa.PublicKey), plainText)
+	if err != nil {
+		return err
+	}
+	plainText2, err := kp.Decrypt(rand.Reader, cipherText, nil)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(plainText, plainText2) {
+		return fmt.Errorf("decrypt failed. Expected %v, actual: %v", plainText, plainText2)
+	}
+	return nil
+}
+
+func rsaEncryptDecryptOAEP(kp keystores.KeyPair, plainText []byte) error {
+	label := []byte("testLabel")
+	cipherText, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, kp.Public().(*rsa.PublicKey), plainText, label)
+	if err != nil {
+		return err
+	}
+	plainText2, err := kp.Decrypt(rand.Reader, cipherText, &rsa.OAEPOptions{
+		Hash:  crypto.SHA256,
+		Label: label,
+	})
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(plainText, plainText2) {
+		return fmt.Errorf("decrypt failed. Expected %v, actual: %v", plainText, plainText2)
+	}
+	return nil
+}
+
 func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
 	plainText := []byte("Hello world!")
 	pub := kp.Public()
-	if rsaPub, ok := pub.(*rsa.PublicKey); ok {
-		cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, rsaPub, plainText)
-		if err != nil {
-			t.Errorf("Encrypt failed: %#v", err)
-			return
+	if _, ok := pub.(*rsa.PublicKey); ok {
+		if err := rsaEncryptDecryptPKCSv15(kp, plainText); err != nil {
+			t.Errorf("PKCS#1 1.5 encrypt - decrypt failed: %#v", err)
+		} else {
+			t.Logf("PKCS#1 1.5 encrypt - decrypt successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 		}
-		plainText2, err := kp.Decrypt(rand.Reader, cipherText, nil)
-		if err != nil {
-			t.Errorf("Decrypt failed: %#v", err)
-			return
-		}
-		if !bytes.Equal(plainText, plainText2) {
-			t.Errorf("Decrypt failed. Expected %v, actual: %v", plainText, plainText2)
-			return
+		if err := rsaEncryptDecryptOAEP(kp, plainText); err != nil {
+			t.Errorf("RSA OAEP encrypt - decrypt failed: %#v", err)
+		} else {
+			t.Logf("RSA OAEP encrypt - decrypt successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 		}
 	} else {
 		t.Skipf("encrypt-decrypt for %T key type not implemented", pub)
@@ -88,6 +118,7 @@ type KeyPairTestCase struct {
 func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm, keyUsage []keystores.KeyUsage) {
 	t.Helper()
 	t.Run(fmt.Sprintf("%s %v", alg.Name, keyUsage), func(t *testing.T) {
+		t.Helper()
 		genOpts := keystores.GenKeyPairOpts{
 			Algorithm:  alg,
 			Label:      fmt.Sprintf("TestKP-%s", alg.Name),
