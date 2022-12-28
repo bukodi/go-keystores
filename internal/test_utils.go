@@ -5,6 +5,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
 	"github.com/bukodi/go-keystores"
@@ -72,13 +73,15 @@ func rsaEncryptDecryptPKCSv15(kp keystores.KeyPair, plainText []byte) error {
 }
 
 func rsaEncryptDecryptOAEP(kp keystores.KeyPair, plainText []byte) error {
+	// The SoftHSM 2.6.1 only supports the SHA1 hash
+
 	label := []byte("testLabel")
-	cipherText, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, kp.Public().(*rsa.PublicKey), plainText, label)
+	cipherText, err := rsa.EncryptOAEP(sha1.New(), rand.Reader, kp.Public().(*rsa.PublicKey), plainText, label)
 	if err != nil {
 		return err
 	}
 	plainText2, err := kp.Decrypt(rand.Reader, cipherText, &rsa.OAEPOptions{
-		Hash:  crypto.SHA256,
+		Hash:  crypto.SHA1,
 		Label: label,
 	})
 	if err != nil {
@@ -100,7 +103,7 @@ func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
 			t.Logf("PKCS#1 1.5 encrypt - decrypt successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 		}
 		if err := rsaEncryptDecryptOAEP(kp, plainText); err != nil {
-			t.Errorf("RSA OAEP encrypt - decrypt failed: %#v", err)
+			t.Errorf("RSA OAEP encrypt - decrypt failed: %s (%#v)", err.Error(), err)
 		} else {
 			t.Logf("RSA OAEP encrypt - decrypt successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 		}

@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/google/go-tpm-tools/simulator"
 	"github.com/google/go-tpm/tpm2"
 	"github.com/google/go-tpm/tpm2/credactivation"
+	"github.com/google/go-tpm/tpmutil"
 	"io"
 	"log"
 	"os"
@@ -72,6 +74,13 @@ func TestTPM2LowLevel(t *testing.T) {
 		t.Fatalf("%#v", err)
 	}
 	defer f.Close()
+
+	if value, err := tpm2.NVRead(f, tpmutil.Handle(tpm2.NVIndexFirst)); err != nil {
+		t.Errorf("%#v", err)
+	} else {
+		t.Logf("Value: %s", base64.StdEncoding.EncodeToString(value))
+	}
+
 	if manu, err := tpm2.GetManufacturer(f); err != nil {
 		log.Fatalf("opening tpm: %v", err)
 	} else {
@@ -180,6 +189,7 @@ func EndorsementKey(f io.ReadWriter) (ekCtx []byte, ekPub crypto.PublicKey, err 
 		log.Fatalf("creating ek: %v", err)
 	}
 	defer tpm2.FlushContext(f, ek)
+
 	out, err := tpm2.ContextSave(f, ek)
 	if err != nil {
 		return nil, nil, keystores.ErrorHandler(err)
