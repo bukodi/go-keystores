@@ -19,7 +19,7 @@ jobs:
       - name: Build
         run: go build -v ./...
       - name: Test with the Go CLI
-        run: go test ./... --coverprofile=coverage.out  -timeout 10s -v > testResults.txt
+        run: go test ./inmemoryks/... --coverprofile=coverage.out  -timeout 10s -v > testResults.txt
       - name: Format coverage
         run: go test  --coverprofile=coverage.out  -o coverage.html
       - name: Upload Go test results
