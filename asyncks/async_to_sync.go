@@ -21,6 +21,16 @@ type syncKs struct {
 	asyncKs keystores.AsyncKeyStore
 }
 
+func (s syncKs) KeyPairById(id keystores.KeyPairId) keystores.KeyPair {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s syncKs) KeyPairs(reload bool) (map[keystores.KeyPairId]keystores.KeyPair, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (s syncKs) Id() string {
 	ctx, _ := context.WithCancel(s.ctx)
 	idCh := s.asyncKs.Id(ctx)
@@ -59,10 +69,6 @@ func (s syncKs) Reload() error {
 }
 
 func (s syncKs) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
-	panic("implement me")
-}
-
-func (s syncKs) KeyPairs() ([]keystores.KeyPair, error) {
 	panic("implement me")
 }
 
