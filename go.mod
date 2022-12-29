@@ -1,9 +1,9 @@
 module github.com/bukodi/go-keystores
 
-go 1.18
+go 1.19
 
 require (
-	github.com/go-piv/piv-go v1.7.0
+	github.com/go-piv/piv-go v1.10.0
 	github.com/google/go-tpm v0.3.3
 	github.com/google/go-tpm-tools v0.3.10
 	github.com/miekg/pkcs11 v1.0.3
