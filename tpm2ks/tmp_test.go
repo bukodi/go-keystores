@@ -43,31 +43,6 @@ func openTpm() (io.ReadWriteCloser, error) {
 	}
 }
 
-func TestECDSASign(t *testing.T) {
-	f, err := openTpm()
-	if err != nil {
-		t.Fatalf("%#v", err)
-	}
-	defer f.Close()
-
-	srkCtx, err := StorageRootKeyECP256(f)
-	if err != nil {
-		t.Fatalf("%s\n%#v", err.Error(), err)
-	}
-
-	pk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	keyCtx, err := ImportECDSAKey(f, srkCtx, pk)
-	if err != nil {
-		t.Fatalf("%s\n%#v", err.Error(), err)
-	}
-
-	_ = keyCtx
-}
-
 func TestTPM2LowLevel(t *testing.T) {
 	f, err := openTpm()
 	if err != nil {
@@ -133,9 +108,11 @@ func TestTPM2LowLevel(t *testing.T) {
 		t.Fatalf("%#v", err)
 	}
 
-	_, aikPub, err := getPublic(f, aikCtx)
+	tpmAikPub, aikPub, err := getPublic(f, aikCtx)
 	if err != nil {
 		t.Fatalf("%#v", err)
+	} else {
+		t.Logf("Properties of AIK: %s", printKeyAttributes(tpmAikPub.Attributes))
 	}
 
 	pubKeyObj, _, err := getPublic(f, appKeyCtx)
@@ -658,4 +635,29 @@ func VerifyAttestation(pubBlob []byte, attestData []byte, sigData []byte, aikPub
 	pem.Encode(os.Stdout, b)
 
 	return nil
+}
+
+func TestECDSASign(t *testing.T) {
+	f, err := openTpm()
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+	defer f.Close()
+
+	srkCtx, err := StorageRootKeyECP256(f)
+	if err != nil {
+		t.Fatalf("%s\n%#v", err.Error(), err)
+	}
+
+	pk, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	keyCtx, err := ImportECDSAKey(f, srkCtx, pk)
+	if err != nil {
+		t.Fatalf("%s\n%#v", err.Error(), err)
+	}
+
+	_ = keyCtx
 }
