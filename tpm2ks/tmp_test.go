@@ -66,11 +66,13 @@ func TestTPM2LowLevel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
+	t.Logf(printKey(f, ekCtx, "Endorsement Key"))
 
 	srkCtx, err := StorageRootKey(f)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
+	t.Logf(printKey(f, srkCtx, "Storage Root Key"))
 
 	aikCtx, aikPubBlob, aikNameData, err := AttestestationIdentityKey(f, srkCtx)
 	if err != nil {
