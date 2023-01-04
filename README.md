@@ -1,6 +1,13 @@
 # go-keystores
 
-Manage cryptographic keystores
+Manage cryptographic keystores.
+
+# Usage examples
+## How to use Keystore to protect TLS key 
+
+## How to use Keystore to protect passwords
+
+## How to use Keystore to sign audit logs
 
 ## Useful links
 

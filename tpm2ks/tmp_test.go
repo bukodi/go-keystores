@@ -29,7 +29,7 @@ const PASSWORD = "" //"Passw0rd"
 var tpmFile io.ReadWriteCloser
 
 func openTpm() (io.ReadWriteCloser, error) {
-	if f, err := os.OpenFile("/dev/tpmrm0x", os.O_RDWR, 0); err == nil {
+	if f, err := os.OpenFile("/dev/tpmrm0", os.O_RDWR, 0); err == nil {
 		return f, nil
 	} else if os.IsNotExist(err) {
 		// Get simulated TPM.
@@ -50,10 +50,19 @@ func TestTPM2LowLevel(t *testing.T) {
 	}
 	defer f.Close()
 
-	if value, err := tpm2.NVRead(f, tpmutil.Handle(tpm2.NVIndexFirst)); err != nil {
+	if value, err := tpm2.NVRead(f, tpmutil.Handle(0x1c00002)); err != nil {
 		t.Errorf("%#v", err)
 	} else {
-		t.Logf("Value: %s", base64.StdEncoding.EncodeToString(value))
+		t.Logf("Manufacturer certificate for EK RSA: \n%s\n", base64.StdEncoding.EncodeToString(value))
+		os.WriteFile("/tmp/tpm_ek_rsa.cer", value, 0644)
+	}
+
+	if value, err := tpm2.NVRead(f, tpmutil.Handle(0x1c0000a)); err != nil {
+		t.Errorf("%#v", err)
+	} else {
+		t.Logf("Manufacturer certificate for EK ECC: \n%s\n", base64.StdEncoding.EncodeToString(value))
+		os.WriteFile("/tmp/tpm_ek_ecc.cer", value, 0644)
+
 	}
 
 	if manu, err := tpm2.GetManufacturer(f); err != nil {
@@ -63,12 +72,14 @@ func TestTPM2LowLevel(t *testing.T) {
 	}
 
 	ekCtx, _, err := EndorsementKey(f)
+	//ekCtx, _, err := EndorsementKeyECC(f)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
 	t.Logf(printKey(f, ekCtx, "Endorsement Key"))
 
-	srkCtx, err := StorageRootKey(f)
+	//srkCtx, err := StorageRootKey(f)
+	srkCtx, err := StorageRootKeyECP256(f)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
