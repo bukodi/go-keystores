@@ -12,14 +12,14 @@ jobs:
         with:
           go-version: '1.19.x'
           cache: true
-      - name: Install libpcsc
-        run: sudo apt-get install -y libpcsclite-dev pcscd pcsc-tools
+      - name: Install libpcsc and SoftHSM2
+        run: sudo apt-get install -y libpcsclite-dev pcscd pcsc-tools softhsm2
       - name: Install dependencies
         run: go get .
       - name: Build
         run: go build -v ./...
       - name: Test with the Go CLI
-        run: go test ./inmemoryks/... --coverprofile=coverage.out  -timeout 10s -v > testResults.txt
+        run: go test ./... --coverprofile=coverage.out  -timeout 10s -v > testResults.txt
       - name: Format coverage
         run: go test  --coverprofile=coverage.out  -o coverage.html
       - name: Upload Go test results
