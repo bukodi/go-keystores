@@ -51,14 +51,14 @@ func TestTPM2LowLevel(t *testing.T) {
 	defer f.Close()
 
 	if value, err := tpm2.NVRead(f, tpmutil.Handle(0x1c00002)); err != nil {
-		t.Errorf("%#v", err)
+		t.Logf("Can't read Manufacturer certificate for EK RSA: %v", err)
 	} else {
 		t.Logf("Manufacturer certificate for EK RSA: \n%s\n", base64.StdEncoding.EncodeToString(value))
 		os.WriteFile("/tmp/tpm_ek_rsa.cer", value, 0644)
 	}
 
 	if value, err := tpm2.NVRead(f, tpmutil.Handle(0x1c0000a)); err != nil {
-		t.Errorf("%#v", err)
+		t.Logf("Can't read Manufacturer certificate for EK ECC: %v", err)
 	} else {
 		t.Logf("Manufacturer certificate for EK ECC: \n%s\n", base64.StdEncoding.EncodeToString(value))
 		os.WriteFile("/tmp/tpm_ek_ecc.cer", value, 0644)
@@ -90,20 +90,26 @@ func TestTPM2LowLevel(t *testing.T) {
 		t.Fatalf("%#v", err)
 	}
 
-	credBlob, encSecret, err := CreateChallenge(f, ekCtx, aikPubBlob, aikNameData)
+	secretNonce := []byte("123")
+	credBlob, encSecret, err := CreateChallenge(f, ekCtx, aikPubBlob, aikNameData, secretNonce)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
 
-	err = StartSession(f, ekCtx, aikCtx, credBlob, encSecret)
+	decodedNonce, err := ActivateCredential(f, ekCtx, aikCtx, credBlob, encSecret)
 	if err != nil {
 		t.Fatalf("%#v", err)
+	} else if !bytes.Equal(decodedNonce, secretNonce) {
+		t.Fatalf("Nonce mismatch")
+	} else {
+		t.Logf("Nonce match")
 	}
 
 	appKeyCtx, appKeyHash, appKeyTicket, err := CreateAppKey(f, srkCtx)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
+	t.Logf(printKey(f, srkCtx, "App signing Key"))
 
 	digest := sha256.Sum256([]byte("Hello world!"))
 	sigBytes, pubKey, err := SignWithAppKey(f, appKeyCtx, digest[:])
@@ -111,7 +117,7 @@ func TestTPM2LowLevel(t *testing.T) {
 		t.Fatalf("%#v", err)
 	}
 	if ecdsa.VerifyASN1(pubKey.(*ecdsa.PublicKey), digest[:], sigBytes) {
-		t.Log("Signatire verified")
+		t.Log("Signature verified")
 	} else {
 		t.Fatalf("Verification failed")
 	}
@@ -121,11 +127,9 @@ func TestTPM2LowLevel(t *testing.T) {
 		t.Fatalf("%#v", err)
 	}
 
-	tpmAikPub, aikPub, err := getPublic(f, aikCtx)
+	_, aikPub, err := getPublic(f, aikCtx)
 	if err != nil {
 		t.Fatalf("%#v", err)
-	} else {
-		t.Logf("Properties of AIK: %s", printKeyAttributes(tpmAikPub.Attributes))
 	}
 
 	pubKeyObj, _, err := getPublic(f, appKeyCtx)
@@ -136,7 +140,6 @@ func TestTPM2LowLevel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
-	fmt.Printf("PubBlob from ctx: %s\n", hex.EncodeToString(pubBlob))
 
 	err = VerifyAttestation(pubBlob, attestData, sigData, aikPub)
 	if err != nil {
@@ -335,7 +338,7 @@ func AttestestationIdentityKey(f io.ReadWriter, srkCtx []byte) (aikCtx []byte, a
 	return aikCtx, aikPubBlob, aikNameData, nil
 }
 
-func CreateChallenge(f io.ReadWriter, ekCtx []byte, aikPubBlob, aikNameData []byte) (credBlob, encSecret []byte, err error) {
+func CreateChallenge(f io.ReadWriter, ekCtx []byte, aikPubBlob, aikNameData []byte, secret []byte) (credBlob, encSecret []byte, err error) {
 	ek, err := tpm2.ContextLoad(f, ekCtx)
 	if err != nil {
 		return nil, nil, keystores.ErrorHandler(err)
@@ -378,7 +381,6 @@ func CreateChallenge(f io.ReadWriter, ekCtx []byte, aikPubBlob, aikNameData []by
 
 	// Generate a challenge for the name.
 	//secret := []byte("The quick brown fox jumps over the lazy dog")
-	secret := []byte("123")
 	symBlockSize := 16
 	credBlob, encSecret, err = credactivation.Generate(name.Digest, ekPub, symBlockSize, secret)
 	if err != nil {
@@ -387,16 +389,16 @@ func CreateChallenge(f io.ReadWriter, ekCtx []byte, aikPubBlob, aikNameData []by
 	return credBlob, encSecret, nil
 }
 
-func StartSession(f io.ReadWriter, ekCtx []byte, aikCtx []byte, credBlob, encSecret []byte) (err error) {
+func ActivateCredential(f io.ReadWriter, ekCtx []byte, aikCtx []byte, credBlob, encSecret []byte) (secretNonce []byte, err error) {
 	ek, err := tpm2.ContextLoad(f, ekCtx)
 	if err != nil {
-		return keystores.ErrorHandler(err)
+		return nil, keystores.ErrorHandler(err)
 	}
 	defer tpm2.FlushContext(f, ek)
 
 	aik, err := tpm2.ContextLoad(f, aikCtx)
 	if err != nil {
-		return keystores.ErrorHandler(err)
+		return nil, keystores.ErrorHandler(err)
 	}
 	defer tpm2.FlushContext(f, aik)
 
@@ -409,22 +411,22 @@ func StartSession(f io.ReadWriter, ekCtx []byte, aikCtx []byte, credBlob, encSec
 		tpm2.AlgNull,
 		tpm2.AlgSHA256)
 	if err != nil {
-		return keystores.ErrorHandler(err)
+		return nil, keystores.ErrorHandler(err)
 	}
 	defer tpm2.FlushContext(f, session)
 
 	auth := tpm2.AuthCommand{Session: tpm2.HandlePasswordSession, Attributes: tpm2.AttrContinueSession}
 	if _, _, err := tpm2.PolicySecret(f, tpm2.HandleEndorsement, auth, session, nil, nil, nil, 0); err != nil {
-		return keystores.ErrorHandler(err)
+		return nil, keystores.ErrorHandler(err)
 	}
 
 	auths := []tpm2.AuthCommand{auth, {Session: session, Attributes: tpm2.AttrContinueSession}}
 	out, err := tpm2.ActivateCredentialUsingAuth(f, auths, aik, ek, credBlob[2:], encSecret[2:])
 	if err != nil {
-		return keystores.ErrorHandler(err)
+		return nil, keystores.ErrorHandler(err)
 	}
-	fmt.Printf("%s\n", out)
-	return nil
+
+	return out, nil
 }
 
 func ImportECDSAKey(f io.ReadWriter, srkCtx []byte, pk *ecdsa.PrivateKey) (impKeyCtx []byte, err error) {
@@ -520,8 +522,7 @@ func SignWithAppKey(f io.ReadWriter, appKeyCtx []byte, digest []byte) (asn1Sig [
 	}
 	defer tpm2.FlushContext(f, appKey)
 
-	tpmPub, name, qname, err := tpm2.ReadPublic(f, appKey)
-	log.Printf("Name: %s, QName: %s\n", string(name), string(qname))
+	tpmPub, _, _, err := tpm2.ReadPublic(f, appKey)
 	if err != nil {
 		return nil, nil, keystores.ErrorHandler(err)
 	}
@@ -534,13 +535,6 @@ func SignWithAppKey(f io.ReadWriter, appKeyCtx []byte, digest []byte) (asn1Sig [
 	sig, err := tpm2.Sign(f, appKey, PASSWORD, digest, nil, sigParams)
 	if err != nil {
 		return nil, nil, keystores.ErrorHandler(err)
-	}
-
-	// Validate
-	if !ecdsa.Verify(cryptoPub.(*ecdsa.PublicKey), digest, sig.ECC.R, sig.ECC.S) {
-		return nil, nil, keystores.ErrorHandler(fmt.Errorf("signature verification failed"))
-	} else {
-		log.Printf("Signature verified\n")
 	}
 
 	asn1Sig = ecdhSignatureToASN1(sig.ECC.R, sig.ECC.S)

@@ -8,18 +8,18 @@ import (
 	"strings"
 )
 
-func printKey(f io.ReadWriter, ctxBytes []byte, title string) (string, error) {
+func printKey(f io.ReadWriter, ctxBytes []byte, title string) string {
 	var msg strings.Builder
 	msg.WriteString(fmt.Sprintf("%s: \n", title))
 	hCtx, err := tpm2.ContextLoad(f, ctxBytes)
 	if err != nil {
-		return "", err
+		return err.Error()
 	}
 	defer tpm2.FlushContext(f, hCtx)
 
 	tpmPubKey, name, qname, err := tpm2.ReadPublic(f, hCtx)
 	if err != nil {
-		return "", err
+		return err.Error()
 	}
 	msg.WriteString(fmt.Sprintf("  Name : %x-%x\n", name[0:2], name[2:]))
 	msg.WriteString(fmt.Sprintf("  QName: %x-%x\n", qname[0:2], qname[2:]))
@@ -30,10 +30,10 @@ func printKey(f io.ReadWriter, ctxBytes []byte, title string) (string, error) {
 
 	publicBlob, err := tpmPubKey.Encode()
 	if err != nil {
-		return "", err
+		return err.Error()
 	}
 	msg.WriteString(fmt.Sprintf("  Calculated name: %x\n", sha256.Sum256(publicBlob)))
-	return msg.String(), nil
+	return msg.String()
 }
 
 func printKeyAttributes(kAttrs tpm2.KeyProp) string {
