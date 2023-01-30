@@ -76,14 +76,14 @@ func TestTPM2LowLevel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
-	t.Logf(printKey(f, ekCtx, "Endorsement Key"))
+	t.Log(printKey(f, ekCtx, "Endorsement Key"))
 
 	//srkCtx, err := StorageRootKey(f)
 	srkCtx, err := StorageRootKeyECP256(f)
 	if err != nil {
 		t.Fatalf("%#v", err)
 	}
-	t.Logf(printKey(f, srkCtx, "Storage Root Key"))
+	t.Log(printKey(f, srkCtx, "Storage Root Key"))
 
 	aikCtx, aikPubBlob, aikNameData, err := AttestestationIdentityKey(f, srkCtx)
 	if err != nil {
@@ -439,7 +439,7 @@ func ImportECDSAKey(f io.ReadWriter, srkCtx []byte, pk *ecdsa.PrivateKey) (impKe
 	public := tpm2.Public{
 		Type:       tpm2.AlgECC,
 		NameAlg:    tpm2.AlgSHA256,
-		Attributes: tpm2.FlagSign | tpm2.FlagSensitiveDataOrigin | tpm2.FlagUserWithAuth,
+		Attributes: tpm2.FlagSign,
 		ECCParameters: &tpm2.ECCParams{
 			Sign: &tpm2.SigScheme{
 				Alg:  tpm2.AlgECDSA,
@@ -454,7 +454,7 @@ func ImportECDSAKey(f io.ReadWriter, srkCtx []byte, pk *ecdsa.PrivateKey) (impKe
 		Sensitive: pk.D.Bytes(),
 	}
 
-	subjectHandle, _, err := tpm2.LoadExternal(f, public, private, srk)
+	subjectHandle, _, err := tpm2.LoadExternal(f, public, private, tpm2.HandleNull)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
@@ -666,5 +666,6 @@ func TestECDSASign(t *testing.T) {
 		t.Fatalf("%s\n%#v", err.Error(), err)
 	}
 
+	t.Log(printKey(f, keyCtx, "Imported Key"))
 	_ = keyCtx
 }
