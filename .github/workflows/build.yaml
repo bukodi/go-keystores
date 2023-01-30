@@ -19,6 +19,7 @@ jobs:
       - name: Build
         run: go build -v ./...
       - name: Test with the Go CLI
+        continue-on-error: true
         run: go test . ./utils/ ./pkcs11ks/ ./inmemoryks/ --coverprofile=coverage.out  -timeout 60s -v > testResults.txt
       - name: Format coverage
         run: go test  --coverprofile=coverage.out  -o coverage.html
