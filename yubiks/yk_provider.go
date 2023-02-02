@@ -3,6 +3,7 @@ package yubiks
 import (
 	"fmt"
 	"github.com/bukodi/go-keystores"
+	"github.com/bukodi/go-keystores/utils"
 	"github.com/go-piv/piv-go/piv"
 	"strings"
 )
@@ -31,29 +32,28 @@ func (p *YkProvider) IsOpen() bool {
 }
 
 func (p *YkProvider) KeyStores() ([]keystores.KeyStore, error) {
-	errors := make([]error, 0)
-
 	// List all smartcards connected to the system.
 	cards, err := piv.Cards() // TODO: convert this function to return []error
 	if err != nil {
-		return nil, []error{keystores.ErrorHandler(err, p)}
+		return nil, keystores.ErrorHandler(err, p)
 	}
 
 	// Find a YubiKey and open the reader.
 	ksList := make([]keystores.KeyStore, 0)
 
+	var retErr error
 	for _, card := range cards {
 		if !(strings.Contains(strings.ToLower(card), "yubikey") || strings.Contains(strings.ToLower(card), "yubikey")) {
 			continue
 		}
 		pivYk, err := piv.Open(card)
 		if err != nil {
-			errors = append(errors, keystores.ErrorHandler(err, p))
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, p))
 			continue
 		}
 		serialInt, err := pivYk.Serial()
 		if err != nil {
-			errors = append(errors, keystores.ErrorHandler(err, p))
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, p))
 			continue
 		}
 
@@ -66,11 +66,7 @@ func (p *YkProvider) KeyStores() ([]keystores.KeyStore, error) {
 		ksList = append(ksList, &ks)
 	}
 
-	if len(errors) == 0 {
-		return ksList, nil
-	} else {
-		return ksList, errors
-	}
+	return ksList, retErr
 }
 
 func (p *YkProvider) FindKeyStore(ykSerial string) (*YkKeyStore, error) {
