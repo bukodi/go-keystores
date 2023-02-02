@@ -58,7 +58,7 @@ func (ks *Pkcs11KeyStore) newECCKeyPair(privKeyObject *ECCPrivateKeyAttributes, 
 }
 
 // createECCKeyPair creates a new Elliptic key pair on the underlying PKCS11 keystore
-func (ks *Pkcs11KeyStore) createECCKeyPair(opts keystores.GenKeyPairOpts, privateKeyTemplate []*p11api.Attribute, publicKeyTemplate []*p11api.Attribute) (*Pkcs11KeyPair, error) {
+func (ks *Pkcs11KeyStore) createECCKeyPair(sess *Pkcs11Session, opts keystores.GenKeyPairOpts, privateKeyTemplate []*p11api.Attribute, publicKeyTemplate []*p11api.Attribute) (*Pkcs11KeyPair, error) {
 	oidUint8, err := asn1.Marshal(opts.Algorithm.Oid)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
@@ -74,7 +74,7 @@ func (ks *Pkcs11KeyStore) createECCKeyPair(opts keystores.GenKeyPairOpts, privat
 
 	mechs := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_EC_KEY_PAIR_GEN, nil)}
 
-	hPub, hPriv, err := ks.provider.pkcs11Ctx.GenerateKeyPair(ks.hSession,
+	hPub, hPriv, err := sess.ctx.GenerateKeyPair(sess.hSession,
 		mechs,
 		publicKeyTemplate, privateKeyTemplate)
 	if err != nil {
@@ -83,10 +83,10 @@ func (ks *Pkcs11KeyStore) createECCKeyPair(opts keystores.GenKeyPairOpts, privat
 
 	var privKeyAttrs ECCPrivateKeyAttributes
 	var pubKeyAttrs ECCPublicKeyAttributes
-	if err := getP11Attributes(ks, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(ks, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -104,12 +104,12 @@ func (ks *Pkcs11KeyStore) createECCKeyPair(opts keystores.GenKeyPairOpts, privat
 		rand.Read(ckaId)
 	}
 	// Set attribute CKA_ID both on private and public key
-	if err = ks.provider.pkcs11Ctx.SetAttributeValue(ks.hSession, hPriv,
+	if err = sess.ctx.SetAttributeValue(sess.hSession, hPriv,
 		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 	kp.eccPrivKeyAttrs.CKA_ID = ckaId
-	if err = ks.provider.pkcs11Ctx.SetAttributeValue(ks.hSession, hPub,
+	if err = sess.ctx.SetAttributeValue(sess.hSession, hPub,
 		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
@@ -145,19 +145,19 @@ func parseEcPoint(bytes []byte, c elliptic.Curve) (*big.Int, *big.Int, error) {
 	return x, y, nil
 }
 
-func (kp *Pkcs11KeyPair) ecdsaSign(_ io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
-	hPrivKey, err := kp.privateKeyHandle()
+func (kp *Pkcs11KeyPair) ecdsaSign(sess *Pkcs11Session, _ io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	hPrivKey, err := kp.privateKeyHandle(sess)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
 	mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_ECDSA, nil)}
-	if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+	if err = sess.ctx.SignInit(sess.hSession, mech, hPrivKey); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
 	var sigBytes []byte
-	if sigBytes, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, digest); err != nil {
+	if sigBytes, err = sess.ctx.Sign(sess.hSession, digest); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 

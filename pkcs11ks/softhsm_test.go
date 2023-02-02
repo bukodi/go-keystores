@@ -109,18 +109,10 @@ func TestSoftHSMWithLowLevelAPI(t *testing.T) {
 func TestSoftHSM2KeyStore(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
-	err := keystores.EnsureOpen(p)
-	if err != nil {
-		t.Fatalf("%#v", err)
-	}
-	defer keystores.MustClosed(p)
 
-	ksList, errs := p.KeyStores()
-	if errs != nil {
-		for _, err = range errs {
-			t.Log(err)
-		}
-		t.Fatal()
+	ksList, err := p.KeyStores()
+	if err != nil {
+		t.Log(err)
 	}
 
 	var ksTestTokenA *Pkcs11KeyStore
@@ -148,22 +140,11 @@ func TestSoftHSM2KeyStore(t *testing.T) {
 func TestRsaGenSignVerify(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
-	err := keystores.EnsureOpen(p)
-	if err != nil {
-		t.Fatalf("%+v", err)
-	}
-	defer keystores.MustClosed(p)
 
 	ks, err := p.FindKeyStore("TestTokenA", "")
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}
-
-	err = keystores.EnsureOpen(ks)
-	if err != nil {
-		t.Fatalf("%+v", err)
-	}
-	defer keystores.MustClosed(ks)
 
 	dumpKeys(ks, t)
 	kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{

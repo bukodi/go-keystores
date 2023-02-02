@@ -30,7 +30,7 @@ func (p *YkProvider) IsOpen() bool {
 	return true
 }
 
-func (p *YkProvider) KeyStores() ([]keystores.KeyStore, []error) {
+func (p *YkProvider) KeyStores() ([]keystores.KeyStore, error) {
 	errors := make([]error, 0)
 
 	// List all smartcards connected to the system.

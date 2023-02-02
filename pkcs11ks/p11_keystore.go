@@ -2,6 +2,7 @@ package pkcs11ks
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
@@ -12,7 +13,6 @@ type Pkcs11KeyStore struct {
 	slotId    uint
 	tokenInfo *p11api.TokenInfo
 	slotInfo  *p11api.SlotInfo
-	hSession  p11api.SessionHandle
 
 	knownRSAPubKeys          []*RSAPublicKeyAttributes
 	knownRSAPrivKeys         []*RSAPrivateKeyAttributes
@@ -33,28 +33,17 @@ func (ks *Pkcs11KeyStore) Name() string {
 }
 
 func (ks *Pkcs11KeyStore) Open() error {
-	if ks.hSession != 0 {
-		return keystores.ErrorHandler(keystores.ErrAlreadyOpen)
-	}
-	err := keystores.EnsureOpen(ks.provider)
-	if err != nil {
-		return keystores.ErrorHandler(err)
-	}
-
-	hSess, err := ks.provider.pkcs11Ctx.OpenSession(ks.slotId, p11api.CKF_SERIAL_SESSION|p11api.CKF_RW_SESSION)
-	if err != nil {
-		return keystores.ErrorHandler(err)
-	}
-	var pin = "1234" // TODO use callback
-	if err = ks.provider.pkcs11Ctx.Login(hSess, p11api.CKU_USER, pin); err != nil {
-		return keystores.ErrorHandler(err)
-	}
-	ks.hSession = hSess
-	return nil
+	return keystores.ErrorHandler(fmt.Errorf("deprecated, don't use this"))
 }
 
 func (ks *Pkcs11KeyStore) Reload() error {
-	err := ks.readStorageObjects()
+	sess, err := ks.aquireSession()
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}
+	defer sess.keyStore.releaseSession(sess)
+
+	err = ks.readStorageObjects(sess)
 	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
@@ -62,23 +51,11 @@ func (ks *Pkcs11KeyStore) Reload() error {
 }
 
 func (ks *Pkcs11KeyStore) Close() error {
-	if ks.hSession == 0 {
-		return keystores.ErrorHandler(keystores.ErrAlreadyClosed)
-	}
-	err := ks.provider.pkcs11Ctx.Logout(ks.hSession)
-	if err != nil {
-		return keystores.ErrorHandler(err)
-	}
-	err = ks.provider.pkcs11Ctx.CloseSession(ks.hSession)
-	if err != nil {
-		return keystores.ErrorHandler(err)
-	}
-	ks.hSession = 0
-	return nil
+	return keystores.ErrorHandler(fmt.Errorf("deprecated, don't use this"))
 }
 
 func (ks *Pkcs11KeyStore) IsOpen() bool {
-	return ks.hSession != 0
+	return false
 }
 
 func (ks *Pkcs11KeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlgorithm {
@@ -154,9 +131,11 @@ func (ks *Pkcs11KeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairI
 }
 
 func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.KeyPair, error) {
-	if err := keystores.EnsureOpen(ks); err != nil {
+	sess, err := ks.aquireSession()
+	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
+	defer sess.keyStore.releaseSession(sess)
 
 	tokenPersistent := !opts.Ephemeral
 	publicKeyTemplate := []*p11api.Attribute{
@@ -180,10 +159,10 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 	}
 
 	if opts.Algorithm.RSAKeyLength > 0 {
-		kp, err := ks.createRSAKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
+		kp, err := ks.createRSAKeyPair(sess, opts, privateKeyTemplate, publicKeyTemplate)
 		return kp, keystores.ErrorHandler(err, ks)
 	} else if opts.Algorithm.ECCCurve != nil {
-		kp, err := ks.createECCKeyPair(opts, privateKeyTemplate, publicKeyTemplate)
+		kp, err := ks.createECCKeyPair(sess, opts, privateKeyTemplate, publicKeyTemplate)
 		return kp, keystores.ErrorHandler(err, ks)
 	} else {
 		return nil, keystores.ErrorHandler(keystores.ErrOperationNotSupportedByProvider, ks)
@@ -194,11 +173,7 @@ func (ks *Pkcs11KeyStore) ImportKeyPair(der []byte) (kp keystores.KeyPair, err e
 	panic("implement me")
 }
 
-func (ks *Pkcs11KeyStore) destroyObject(class CK_OBJECT_CLASS, id CK_Bytes, label CK_String) (objDeleted int, retErr error) {
-	if err := keystores.EnsureOpen(ks); err != nil {
-		return 0, keystores.ErrorHandler(err, ks)
-	}
-
+func (ks *Pkcs11KeyStore) destroyObject(sess *Pkcs11Session, class CK_OBJECT_CLASS, id CK_Bytes, label CK_String) (objDeleted int, retErr error) {
 	// Query all object handle
 	attrs := make([]*p11api.Attribute, 0)
 	if class != 0 {
@@ -211,21 +186,21 @@ func (ks *Pkcs11KeyStore) destroyObject(class CK_OBJECT_CLASS, id CK_Bytes, labe
 		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_LABEL, Value: bytesFrom_CK_String(label)})
 	}
 
-	if err := ks.provider.pkcs11Ctx.FindObjectsInit(ks.hSession, attrs); err != nil {
+	if err := sess.ctx.FindObjectsInit(sess.hSession, attrs); err != nil {
 		return 0, keystores.ErrorHandler(err)
 	}
 	defer func() {
-		err := ks.provider.pkcs11Ctx.FindObjectsFinal(ks.hSession)
+		err := sess.ctx.FindObjectsFinal(sess.hSession)
 		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 	}()
 
 	// Delete objects
-	hObjs, _, err := ks.provider.pkcs11Ctx.FindObjects(ks.hSession, 100)
+	hObjs, _, err := sess.ctx.FindObjects(sess.hSession, 100)
 	if err != nil {
 		return 0, keystores.ErrorHandler(err)
 	}
 	for _, hObj := range hObjs {
-		if err := ks.provider.pkcs11Ctx.DestroyObject(ks.hSession, hObj); err != nil {
+		if err := sess.ctx.DestroyObject(sess.hSession, hObj); err != nil {
 			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, ks))
 		} else {
 			objDeleted++

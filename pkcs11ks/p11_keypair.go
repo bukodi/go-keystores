@@ -31,25 +31,21 @@ type Pkcs11KeyPair struct {
 // Check whether implements the keystores.KeyPair interface
 var _ keystores.KeyPair = &Pkcs11KeyPair{}
 
-func (kp *Pkcs11KeyPair) privateKeyHandle() (hPriv p11api.ObjectHandle, retErr error) {
-	if err := keystores.EnsureOpen(kp.keyStore); err != nil {
-		return 0, keystores.ErrorHandler(err)
-	}
-
+func (kp *Pkcs11KeyPair) privateKeyHandle(sess *Pkcs11Session) (hPriv p11api.ObjectHandle, retErr error) {
 	// Query priv key object by CKA_CLASS and CKA_ID
 	classBytes := bytesFrom_CK_OBJECT_CLASS(kp.commonPrivateKeyAttributes().CKA_CLASS, kp.keyStore.provider.ckULONGis32bit)
-	if err := kp.keyStore.provider.pkcs11Ctx.FindObjectsInit(kp.keyStore.hSession, []*p11api.Attribute{
+	if err := sess.ctx.FindObjectsInit(sess.hSession, []*p11api.Attribute{
 		{p11api.CKA_CLASS, classBytes},
 		{p11api.CKA_ID, bytesFrom_CK_Bytes(kp.commonPrivateKeyAttributes().CKA_ID)},
 	}); err != nil {
-		return 0, keystores.ErrorHandler(err)
+		return 0, keystores.ErrorHandler(err, kp)
 	}
 	defer func() {
-		err := kp.keyStore.provider.pkcs11Ctx.FindObjectsFinal(kp.keyStore.hSession)
+		err := sess.ctx.FindObjectsFinal(sess.hSession)
 		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 	}()
 
-	hObjs, _, err := kp.keyStore.provider.pkcs11Ctx.FindObjects(kp.keyStore.hSession, 100)
+	hObjs, _, err := sess.ctx.FindObjects(sess.hSession, 100)
 	if err != nil {
 		return 0, keystores.ErrorHandler(err)
 	} else if len(hObjs) == 0 {
@@ -131,18 +127,29 @@ func (kp *Pkcs11KeyPair) KeyStore() keystores.KeyStore {
 }
 
 func (kp *Pkcs11KeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	sess, err := kp.keyStore.aquireSession()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer sess.keyStore.releaseSession(sess)
+
 	if kp.rsaPublicKey != nil {
-		return kp.rsaSign(rand, digest, opts)
+		return kp.rsaSign(sess, rand, digest, opts)
 	} else if kp.eccPublicKey != nil {
-		return kp.ecdsaSign(rand, digest, opts)
+		return kp.ecdsaSign(sess, rand, digest, opts)
 	} else {
 		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
 	}
 }
 
 func (kp *Pkcs11KeyPair) Decrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
+	sess, err := kp.keyStore.aquireSession()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer sess.keyStore.releaseSession(sess)
 	if kp.rsaPublicKey != nil {
-		if plaintext, err := kp.rsaDecrypt(rand, ciphertext, opts); err != nil {
+		if plaintext, err := kp.rsaDecrypt(sess, rand, ciphertext, opts); err != nil {
 			return nil, keystores.ErrorHandler(err)
 		} else {
 			return plaintext, nil
@@ -159,11 +166,13 @@ func (kp *Pkcs11KeyPair) ExportPrivate() (privKey crypto.PrivateKey, err error) 
 }
 
 func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
-	if err := keystores.EnsureOpen(kp.keyStore); err != nil {
+	sess, err := kp.keyStore.aquireSession()
+	if err != nil {
 		return keystores.ErrorHandler(err)
 	}
+	defer sess.keyStore.releaseSession(sess)
 
-	if cntDelete, err := kp.keyStore.destroyObject(kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID, ""); err != nil {
+	if cntDelete, err := kp.keyStore.destroyObject(sess, kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID, ""); err != nil {
 		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 	} else if cntDelete > 1 {
 		retErr = utils.CollectError(retErr, keystores.ErrorHandler(errors.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID)))
@@ -172,7 +181,7 @@ func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
 	}
 
 	if kp.commonPublicKeyAttributes() != nil {
-		if cntDelete, err := kp.keyStore.destroyObject(kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID, ""); err != nil {
+		if cntDelete, err := kp.keyStore.destroyObject(sess, kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID, ""); err != nil {
 			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
 		} else if cntDelete > 1 {
 			retErr = utils.CollectError(retErr, keystores.ErrorHandler(errors.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))

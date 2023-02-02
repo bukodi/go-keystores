@@ -48,24 +48,6 @@ func TestEnsureClosed(t *testing.T) {
 	}
 }
 
-func TestEnsureOpen(t *testing.T) {
-	type args struct {
-		obj Openable
-	}
-	var tests []struct {
-		name    string
-		args    args
-		wantErr bool
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := EnsureOpen(tt.args.obj); (err != nil) != tt.wantErr {
-				t.Errorf("EnsureOpen() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestGenerateKeyPairIdFromPubKey(t *testing.T) {
 	type args struct {
 		pubKey crypto.PublicKey

@@ -3,6 +3,7 @@ package pkcs11ks
 import (
 	"fmt"
 	"github.com/bukodi/go-keystores"
+	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
 )
 
@@ -61,23 +62,27 @@ func (p *Pkcs11Provider) IsOpen() bool {
 	return p.pkcs11Ctx != nil
 }
 
-func (p *Pkcs11Provider) KeyStores() ([]keystores.KeyStore, []error) {
-	errors := make([]error, 0)
+func (p *Pkcs11Provider) KeyStores() ([]keystores.KeyStore, error) {
+	if p.pkcs11Ctx == nil {
+		if err := p.Open(); err != nil {
+			return nil, keystores.ErrorHandler(err, p)
+		}
+	}
+
 	slotIds, err := p.pkcs11Ctx.GetSlotList(true)
 	if err != nil {
-		return nil, []error{keystores.ErrorHandler(err, p)}
+		return nil, keystores.ErrorHandler(err, p)
 	}
 
 	ksList := make([]keystores.KeyStore, 0)
 	for _, slotId := range slotIds {
-		ti, err := p.pkcs11Ctx.GetTokenInfo(slotId)
-		if err != nil {
-			errors = append(errors, keystores.ErrorHandler(err, p))
+		ti, err1 := p.pkcs11Ctx.GetTokenInfo(slotId)
+		if err1 != nil {
 			continue
 		}
-		si, err := p.pkcs11Ctx.GetSlotInfo(slotId)
-		if err != nil {
-			errors = append(errors, keystores.ErrorHandler(err, p))
+		si, err1 := p.pkcs11Ctx.GetSlotInfo(slotId)
+		if err1 != nil {
+			err = utils.CollectError(err, keystores.ErrorHandler(err1, p))
 			continue
 		}
 		ks := Pkcs11KeyStore{
@@ -90,14 +95,15 @@ func (p *Pkcs11Provider) KeyStores() ([]keystores.KeyStore, []error) {
 		ksList = append(ksList, &ks)
 	}
 
-	if len(errors) == 0 {
-		return ksList, nil
-	} else {
-		return ksList, errors
-	}
+	return ksList, err
 }
 
 func (p *Pkcs11Provider) FindKeyStore(tokenLabel string, tokenSerial string) (*Pkcs11KeyStore, error) {
+	if p.pkcs11Ctx == nil {
+		if err := p.Open(); err != nil {
+			return nil, keystores.ErrorHandler(err, p)
+		}
+	}
 	slotIds, err := p.pkcs11Ctx.GetSlotList(true)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err, p)

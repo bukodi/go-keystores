@@ -36,7 +36,7 @@ func (ks *Pkcs11KeyStore) newRSAKeyPair(privKeyObject *RSAPrivateKeyAttributes, 
 }
 
 // createRSAKeyPair creates a new RSA key pair on the underlying PKCS11 keystore
-func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privateKeyTemplate []*p11api.Attribute, publicKeyTemplate []*p11api.Attribute) (*Pkcs11KeyPair, error) {
+func (ks *Pkcs11KeyStore) createRSAKeyPair(sess *Pkcs11Session, opts keystores.GenKeyPairOpts, privateKeyTemplate []*p11api.Attribute, publicKeyTemplate []*p11api.Attribute) (*Pkcs11KeyPair, error) {
 	publicKeyTemplate = append(publicKeyTemplate,
 		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_RSA),
 		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
@@ -45,7 +45,7 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privat
 
 	mechs := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_KEY_PAIR_GEN, nil)}
 
-	hPub, hPriv, err := ks.provider.pkcs11Ctx.GenerateKeyPair(ks.hSession,
+	hPub, hPriv, err := sess.ctx.GenerateKeyPair(sess.hSession,
 		mechs,
 		publicKeyTemplate, privateKeyTemplate)
 	if err != nil {
@@ -54,10 +54,10 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privat
 
 	var privKeyAttrs RSAPrivateKeyAttributes
 	var pubKeyAttrs RSAPublicKeyAttributes
-	if err := getP11Attributes(ks, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(ks, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -75,12 +75,12 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(opts keystores.GenKeyPairOpts, privat
 		rand.Read(ckaId)
 	}
 	// Set attribute CKA_ID both on private and public key
-	if err = ks.provider.pkcs11Ctx.SetAttributeValue(ks.hSession, hPriv,
+	if err = sess.ctx.SetAttributeValue(sess.hSession, hPriv,
 		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 	kp.rsaPrivKeyAttrs.CKA_ID = ckaId
-	if err = ks.provider.pkcs11Ctx.SetAttributeValue(ks.hSession, hPub,
+	if err = sess.ctx.SetAttributeValue(sess.hSession, hPub,
 		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
@@ -105,8 +105,8 @@ func hashToPSSParams(hashFunction crypto.Hash) (hashAlg uint, mgfAlg uint, hashL
 		return 0, 0, 0
 	}
 }
-func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
-	hPrivKey, err := kp.privateKeyHandle()
+func (kp *Pkcs11KeyPair) rsaSign(sess *Pkcs11Session, rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	hPrivKey, err := kp.privateKeyHandle(sess)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
@@ -127,10 +127,10 @@ func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.Sign
 		}
 		params := p11api.NewPSSParams(hMech, mgf, sLen)
 		mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_PSS, params)}
-		if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+		if err = sess.ctx.SignInit(sess.hSession, mech, hPrivKey); err != nil {
 			return nil, err
 		}
-		if signature, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, digest); err != nil {
+		if signature, err = sess.ctx.Sign(sess.hSession, digest); err != nil {
 			return nil, keystores.ErrorHandler(err)
 		} else {
 			return signature, nil
@@ -142,10 +142,10 @@ func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.Sign
 		copy(t[0:len(oid)], oid)
 		copy(t[len(oid):], digest)
 		mech := []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS, nil)}
-		if err = kp.keyStore.provider.pkcs11Ctx.SignInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+		if err = sess.ctx.SignInit(sess.hSession, mech, hPrivKey); err != nil {
 			return nil, keystores.ErrorHandler(err)
 		}
-		if signature, err = kp.keyStore.provider.pkcs11Ctx.Sign(kp.keyStore.hSession, t); err != nil {
+		if signature, err = sess.ctx.Sign(sess.hSession, t); err != nil {
 			return nil, keystores.ErrorHandler(err)
 		} else {
 			return signature, nil
@@ -153,8 +153,8 @@ func (kp *Pkcs11KeyPair) rsaSign(rand io.Reader, digest []byte, opts crypto.Sign
 	}
 }
 
-func (kp *Pkcs11KeyPair) rsaDecrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
-	hPrivKey, err := kp.privateKeyHandle()
+func (kp *Pkcs11KeyPair) rsaDecrypt(sess *Pkcs11Session, rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
+	hPrivKey, err := kp.privateKeyHandle(sess)
 	if err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
@@ -178,10 +178,11 @@ func (kp *Pkcs11KeyPair) rsaDecrypt(rand io.Reader, ciphertext []byte, opts cryp
 	} else {
 		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported RSA option type: %T", opts))
 	}
-	if err := kp.keyStore.provider.pkcs11Ctx.DecryptInit(kp.keyStore.hSession, mech, hPrivKey); err != nil {
+
+	if err := sess.ctx.DecryptInit(sess.hSession, mech, hPrivKey); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if plaintext, err := kp.keyStore.provider.pkcs11Ctx.Decrypt(kp.keyStore.hSession, ciphertext); err != nil {
+	if plaintext, err := sess.ctx.Decrypt(sess.hSession, ciphertext); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	} else {
 		return plaintext, nil

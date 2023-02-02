@@ -10,7 +10,7 @@ var (
 )
 
 type Provider interface {
-	KeyStores() ([]KeyStore, []error)
+	KeyStores() ([]KeyStore, error)
 	Open() error
 	Close() error
 	IsOpen() bool
