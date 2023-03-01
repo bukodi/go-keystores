@@ -3,6 +3,9 @@ module github.com/bukodi/go-keystores
 go 1.20
 
 require (
+	github.com/btcsuite/btcd v0.21.0-beta.0.20201114000516-e9c7a5ac6401
+	github.com/coinbase/kryptology v1.8.0
+	github.com/dustinxie/ecc v0.0.0-20210511000915-959544187564
 	github.com/go-piv/piv-go v1.10.0
 	github.com/google/go-tpm v0.3.3
 	github.com/google/go-tpm-tools v0.3.10
@@ -15,6 +18,9 @@ require (
 )
 
 require (
+	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
+	github.com/bwesterb/go-ristretto v1.2.0 // indirect
+	github.com/consensys/gnark-crypto v0.5.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/certificate-transparency-go v1.1.2 // indirect
