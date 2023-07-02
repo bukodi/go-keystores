@@ -150,7 +150,12 @@ func (i *InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.Signer
 func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
 	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
 		return rsaKey.Decrypt(rand, msg, opts)
-	} else if _, ok := i.privKey.(ecdsa.PrivateKey); ok {
+	} else if edsaKey, ok := i.privKey.(ecdsa.PrivateKey); ok {
+		if ecdsaKey, err := edsaKey.ECDH(); err != nil {
+			return nil, keystores.ErrorHandler(err)
+		} else {
+			return ecdsaKey.ECDH()Decrypt(rand, msg, opts)
+		}
 		// TODO: https://asecuritysite.com/encryption/goecdh
 		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	} else if _, ok := i.privKey.(ed25519.PrivateKey); ok {
