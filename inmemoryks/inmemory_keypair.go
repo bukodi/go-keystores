@@ -151,10 +151,11 @@ func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.Decryp
 	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
 		return rsaKey.Decrypt(rand, msg, opts)
 	} else if edsaKey, ok := i.privKey.(ecdsa.PrivateKey); ok {
-		if ecdsaKey, err := edsaKey.ECDH(); err != nil {
+		if ecdhKey, err := edsaKey.ECDH(); err != nil {
 			return nil, keystores.ErrorHandler(err)
 		} else {
-			return ecdsaKey.ECDH()Decrypt(rand, msg, opts)
+			_ = ecdhKey
+			// TODO: return ecdhKey.ECDH(nil)
 		}
 		// TODO: https://asecuritysite.com/encryption/goecdh
 		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))

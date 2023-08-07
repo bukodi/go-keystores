@@ -57,7 +57,7 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 	}
 }
 
-func rsaEncryptDecryptPKCSv15(kp keystores.KeyPair, plainText []byte) error {
+func rsaEncryptDecryptPKCSv15(kp keystores.RSAKeyPair, plainText []byte) error {
 	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, kp.Public().(*rsa.PublicKey), plainText)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func rsaEncryptDecryptPKCSv15(kp keystores.KeyPair, plainText []byte) error {
 	return nil
 }
 
-func rsaEncryptDecryptOAEP(kp keystores.KeyPair, plainText []byte) error {
+func rsaEncryptDecryptOAEP(kp keystores.RSAKeyPair, plainText []byte) error {
 	// The SoftHSM 2.6.1 only supports the SHA1 hash
 
 	label := []byte("testLabel")
@@ -93,7 +93,7 @@ func rsaEncryptDecryptOAEP(kp keystores.KeyPair, plainText []byte) error {
 	return nil
 }
 
-func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
+func EncryptDecryptTest(t *testing.T, kp keystores.RSAKeyPair) {
 	plainText := []byte("Hello world!")
 	pub := kp.Public()
 	if _, ok := pub.(*rsa.PublicKey); ok {
@@ -174,8 +174,10 @@ func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm
 			}
 		}
 
-		if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
-			EncryptDecryptTest(t, kp)
+		if rsaKp, ok := kp.(keystores.RSAKeyPair); ok {
+			if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
+				EncryptDecryptTest(t, rsaKp)
+			}
 		}
 
 	})

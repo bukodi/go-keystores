@@ -3,7 +3,7 @@ package tpm2ks
 import (
 	"crypto/sha256"
 	"fmt"
-	"github.com/google/go-tpm/tpm2"
+	"github.com/google/go-tpm/legacy/tpm2"
 	"io"
 	"strings"
 )
