@@ -50,6 +50,7 @@ func TestInMemoryKeystore(t *testing.T) {
 		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageSign, keystores.KeyUsageDecrypt})
 		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageSign})
 		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageDecrypt})
+		internal.KeyPairTest(t, ks, alg, []keystores.KeyUsage{keystores.KeyUsageDecrypt, keystores.KeyUsageAgree})
 	}
 }
 

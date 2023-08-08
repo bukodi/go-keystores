@@ -154,8 +154,23 @@ func (kp *Pkcs11KeyPair) Decrypt(rand io.Reader, ciphertext []byte, opts crypto.
 		} else {
 			return plaintext, nil
 		}
-	} else if kp.eccPublicKey != nil {
+	} else {
 		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
+	}
+}
+
+func (kp *Pkcs11KeyPair) ECDH(remote *ecdsa.PublicKey) ([]byte, error) {
+	sess, err := kp.keyStore.aquireSession()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer sess.keyStore.releaseSession(sess)
+	if kp.eccPublicKey != nil {
+		if sharedSecret, err := kp.ecdhAgree(sess, remote); err != nil {
+			return nil, keystores.ErrorHandler(err)
+		} else {
+			return sharedSecret, nil
+		}
 	} else {
 		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
 	}

@@ -3,6 +3,7 @@ package keystores
 import (
 	"context"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
@@ -34,19 +35,12 @@ type KeyPair interface {
 	KeyStore() KeyStore
 	Public() crypto.PublicKey
 	Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error)
+	Decrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error)
 	ExportPrivate() (privKey crypto.PrivateKey, err error)
 	Destroy() error
 	Verify(signature []byte, digest []byte, opts crypto.SignerOpts) (err error)
+	ECDH(remote *ecdsa.PublicKey) ([]byte, error)
 	Attestation(nonce []byte) (att Attestation, err error)
-}
-
-type RSAKeyPair interface {
-	KeyPair
-	Decrypt(rand io.Reader, ciphertext []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error)
-}
-
-type ECCKeyPair interface {
-	KeyPair
 }
 
 type AsyncKeyPair interface {

@@ -150,22 +150,34 @@ func (i *InMemoryKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.Signer
 func (i *InMemoryKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
 	if rsaKey, ok := i.privKey.(*rsa.PrivateKey); ok {
 		return rsaKey.Decrypt(rand, msg, opts)
-	} else if edsaKey, ok := i.privKey.(ecdsa.PrivateKey); ok {
-		if ecdhKey, err := edsaKey.ECDH(); err != nil {
-			return nil, keystores.ErrorHandler(err)
-		} else {
-			_ = ecdhKey
-			// TODO: return ecdhKey.ECDH(nil)
-		}
-		// TODO: https://asecuritysite.com/encryption/goecdh
-		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
-	} else if _, ok := i.privKey.(ed25519.PrivateKey); ok {
-		// TODO: rfc7748
-		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
+	} else if _, ok := i.privKey.(*ecdsa.PrivateKey); ok {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
+	} else if _, ok := i.privKey.(*ed25519.PrivateKey); ok {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	} else {
-		plaintext, err = nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
 	}
-	return
+}
+
+func (i *InMemoryKeyPair) ECDH(remote *ecdsa.PublicKey) ([]byte, error) {
+	if _, ok := i.privKey.(*rsa.PrivateKey); ok {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
+	} else if ecdsaPrivKey, ok := i.privKey.(*ecdsa.PrivateKey); ok {
+		ecdhPrivKey, err := ecdsaPrivKey.ECDH()
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
+		ecdhRemote, err := remote.ECDH()
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
+		return ecdhPrivKey.ECDH(ecdhRemote)
+	} else if _, ok := i.privKey.(*ed25519.PrivateKey); ok {
+		// TODO: rfc7748
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm"))
+	} else {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported key algorithm: %v", i.keyAlorithm))
+	}
 }
 
 func (i *InMemoryKeyPair) ExportPrivate() (key crypto.PrivateKey, err error) {

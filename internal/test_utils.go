@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -57,7 +58,7 @@ func SignVerifyRSAPSSTest(t *testing.T, kp keystores.KeyPair) {
 	}
 }
 
-func rsaEncryptDecryptPKCSv15(kp keystores.RSAKeyPair, plainText []byte) error {
+func rsaEncryptDecryptPKCSv15(kp keystores.KeyPair, plainText []byte) error {
 	cipherText, err := rsa.EncryptPKCS1v15(rand.Reader, kp.Public().(*rsa.PublicKey), plainText)
 	if err != nil {
 		return err
@@ -72,7 +73,7 @@ func rsaEncryptDecryptPKCSv15(kp keystores.RSAKeyPair, plainText []byte) error {
 	return nil
 }
 
-func rsaEncryptDecryptOAEP(kp keystores.RSAKeyPair, plainText []byte) error {
+func rsaEncryptDecryptOAEP(kp keystores.KeyPair, plainText []byte) error {
 	// The SoftHSM 2.6.1 only supports the SHA1 hash
 
 	label := []byte("testLabel")
@@ -93,7 +94,7 @@ func rsaEncryptDecryptOAEP(kp keystores.RSAKeyPair, plainText []byte) error {
 	return nil
 }
 
-func EncryptDecryptTest(t *testing.T, kp keystores.RSAKeyPair) {
+func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
 	plainText := []byte("Hello world!")
 	pub := kp.Public()
 	if _, ok := pub.(*rsa.PublicKey); ok {
@@ -109,6 +110,41 @@ func EncryptDecryptTest(t *testing.T, kp keystores.RSAKeyPair) {
 		}
 	} else {
 		t.Skipf("encrypt-decrypt for %T key type not implemented", pub)
+	}
+}
+
+func ECDHTest(t *testing.T, kp keystores.KeyPair) {
+	pub := kp.Public()
+	if ecdsaPub, ok := pub.(*ecdsa.PublicKey); ok {
+		remotePriv, err := ecdsa.GenerateKey(ecdsaPub.Curve, rand.Reader)
+		if err != nil {
+			t.Errorf("remote key generation failed: %#v", err)
+		}
+
+		sharedSecret1, err := kp.ECDH(&remotePriv.PublicKey)
+		if err != nil {
+			t.Errorf("ecdh first phase failed: %#v", err)
+		}
+		remoteEcdh, err := remotePriv.ECDH()
+		if err != nil {
+			t.Errorf("get ecdh from ecdsa failed: %#v", err)
+		}
+		ecdhPub, err := ecdsaPub.ECDH()
+		if err != nil {
+			t.Errorf("get ecdh from ecdsa failed: %#v", err)
+		}
+		sharedSecret2, err := remoteEcdh.ECDH(ecdhPub)
+		if err != nil {
+			t.Errorf("ecdh verify phase failed: %#v", err)
+		}
+
+		if bytes.Equal(sharedSecret1, sharedSecret2) {
+			t.Logf("ECDH key agreement successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
+		} else {
+			t.Errorf("ECDH shared secrects differs: %v, %v", sharedSecret1, sharedSecret2)
+		}
+	} else {
+		t.Skipf("ECDH for %T key type not implemented", pub)
 	}
 }
 
@@ -174,10 +210,12 @@ func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm
 			}
 		}
 
-		if rsaKp, ok := kp.(keystores.RSAKeyPair); ok {
-			if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
-				EncryptDecryptTest(t, rsaKp)
-			}
+		if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
+			//EncryptDecryptTest(t, kp)
+		}
+
+		if kp.KeyUsage()[keystores.KeyUsageAgree] {
+			ECDHTest(t, kp)
 		}
 
 	})

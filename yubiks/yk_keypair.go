@@ -2,6 +2,7 @@ package yubiks
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"github.com/bukodi/go-keystores"
 	"io"
 )
@@ -48,6 +49,10 @@ func (kp YkKeyPair) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) 
 }
 
 func (kp YkKeyPair) Decrypt(rand io.Reader, msg []byte, opts crypto.DecrypterOpts) (plaintext []byte, err error) {
+	panic("implement me")
+}
+
+func (kp YkKeyPair) ECDH(remote *ecdsa.PublicKey) ([]byte, error) {
 	panic("implement me")
 }
 

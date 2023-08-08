@@ -52,7 +52,6 @@ func (imks *InMemoryKeyStore) SupportedPrivateKeyAlgorithms() []keystores.KeyAlg
 		keystores.KeyAlgRSA2048,
 		keystores.KeyAlgRSA3072,
 		keystores.KeyAlgRSA4096,
-		keystores.KeyAlgECP224,
 		keystores.KeyAlgECP256,
 		keystores.KeyAlgECP384,
 		keystores.KeyAlgECP521,

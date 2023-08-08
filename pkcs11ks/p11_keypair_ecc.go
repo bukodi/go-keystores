@@ -177,3 +177,44 @@ func (kp *Pkcs11KeyPair) ecdsaSign(sess *Pkcs11Session, _ io.Reader, digest []by
 		return asn1Bytes, nil
 	}
 }
+
+func (kp *Pkcs11KeyPair) ecdhAgree(sess *Pkcs11Session, remote *ecdsa.PublicKey) ([]byte, error) {
+	hPrivKey, err := kp.privateKeyHandle(sess)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	// Check this and remote uses the same curve
+	curve := kp.eccPublicKey.Curve
+
+	template := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_TOKEN, false),
+		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_SECRET_KEY),
+		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_GENERIC_SECRET),
+		p11api.NewAttribute(p11api.CKA_SENSITIVE, false),
+		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, true),
+		p11api.NewAttribute(p11api.CKA_ENCRYPT, true),
+		p11api.NewAttribute(p11api.CKA_DECRYPT, true),
+		p11api.NewAttribute(p11api.CKA_WRAP, true),
+		p11api.NewAttribute(p11api.CKA_UNWRAP, true),
+		p11api.NewAttribute(p11api.CKA_VALUE_LEN, (curve.Params().BitSize+7)/8),
+	}
+	params := p11api.ECDH1DeriveParams{KDF: p11api.CKD_NULL, PublicKeyData: elliptic.Marshal(curve, remote.X, remote.Y)}
+	mech := []*p11api.Mechanism{
+		p11api.NewMechanism(p11api.CKM_ECDH1_DERIVE, &params),
+	}
+
+	var hSharedKey p11api.ObjectHandle
+	if hSharedKey, err = sess.ctx.DeriveKey(sess.hSession, mech, hPrivKey, template); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	template2 := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_VALUE, nil),
+	}
+	attr, err := sess.ctx.GetAttributeValue(sess.hSession, hSharedKey, template2)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	return attr[0].Value, nil
+}
