@@ -20,6 +20,12 @@ func NewYkProvider() *YkProvider {
 }
 
 func (p *YkProvider) Open() error {
+	// List all smartcards connected to the system.
+	cards, err := piv.Cards()
+	if err != nil {
+		return keystores.ErrorHandler(err)
+	}
+	_ = cards
 	return nil
 }
 
