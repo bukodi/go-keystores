@@ -3,14 +3,18 @@ package yubiks
 import (
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"github.com/go-piv/piv-go/piv"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestYubikey(t *testing.T) {
@@ -56,13 +60,48 @@ func TestYubikey(t *testing.T) {
 		t.Logf("Metadata: %#v", md)
 	}
 
-	// Generate a private key on the YubiKey.
-	key := piv.Key{
-		Algorithm:   piv.AlgorithmEC256,
-		PINPolicy:   piv.PINPolicyAlways,
-		TouchPolicy: piv.TouchPolicyCached,
+	// List slots
+	slots := make([]piv.Slot, 0)
+	slots = append(slots, piv.SlotAuthentication, piv.SlotSignature, piv.SlotKeyManagement, piv.SlotCardAuthentication)
+	for i := uint32(0x82); i <= uint32(0x97); i++ {
+		slots = append(slots, piv.Slot{Key: i})
 	}
-	pubKey, err := yk.GenerateKey(piv.DefaultManagementKey, piv.SlotAuthentication, key)
+
+	for _, s := range slots {
+
+		var pubKey crypto.PublicKey
+		userCert, err := yk.Certificate(s)
+		if err != nil {
+			t.Errorf("%x USER CERT ERROR: %+v", s.Key, err)
+		} else {
+			t.Logf("%x subject: %+v", s.Key, userCert.Subject.String())
+			pubKey = userCert.PublicKey
+		}
+
+		attestCert, err := yk.Attest(s)
+		if err != nil {
+			t.Errorf("%x ATEST CERT ERROR: %+v", s.Key, err)
+		} else {
+			t.Logf("%x subject: %+v", s.Key, attestCert.Subject.String())
+			pubKey = attestCert.PublicKey
+		}
+
+		if pubKey != nil {
+			privKey, err := yk.PrivateKey(s, pubKey, piv.KeyAuth{PIN: piv.DefaultPIN})
+			if err != nil {
+				t.Errorf("%x PRIV KEY ERROR: %+v", s.Key, err)
+			} else {
+				t.Logf("%x priv key: %+v", s.Key, privKey)
+			}
+		}
+	}
+
+	// Generate a private key on the YubiKey.
+	pubKey, err := yk.GenerateKey(piv.DefaultManagementKey, piv.SlotAuthentication, piv.Key{
+		Algorithm:   piv.AlgorithmEC256,
+		PINPolicy:   piv.PINPolicyOnce,
+		TouchPolicy: piv.TouchPolicyNever,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +148,7 @@ func TestYubikey(t *testing.T) {
 	}
 	t.Logf("Attestation cert:")
 	dumpCert(yubiKeyAttestationCert, t)
-	//os.WriteFile("/tmp/yubiKeyAttestationCert.der", yubiKeyAttestationCert.Raw, 0666)
+	os.WriteFile("/tmp/yubiKeyAttestationCert.der", yubiKeyAttestationCert.Raw, 0666)
 
 	slotAttestationCertificate, err := yk.Attest(piv.SlotAuthentication)
 	if err != nil {
@@ -117,8 +156,43 @@ func TestYubikey(t *testing.T) {
 	}
 	t.Logf("Slot attestation cert: ")
 	dumpCert(slotAttestationCertificate, t)
-	//os.WriteFile("/tmp/slotKeyAttestationCert.der", slotAttestationCertificate.Raw, 0666)
+	os.WriteFile("/tmp/slotKeyAttestationCert.der", slotAttestationCertificate.Raw, 0666)
 
+	// Import key
+	unsafeKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := yk.SetPrivateKeyInsecure(piv.DefaultManagementKey, piv.SlotKeyManagement, unsafeKey, piv.Key{
+		Algorithm:   piv.AlgorithmEC256,
+		PINPolicy:   piv.PINPolicyOnce,
+		TouchPolicy: piv.TouchPolicyNever,
+	}); err != nil {
+		t.Fatalf("Cant import ECC key: %+v", err)
+	}
+
+	template := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			Organization: []string{"Acme Co"},
+		},
+		NotBefore: time.Now(),
+		NotAfter:  time.Now().Add(time.Hour * 24 * 180),
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+	selfSignedCertBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, unsafeKey.Public(), unsafeKey)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	selfSignedCert, err := x509.ParseCertificate(selfSignedCertBytes)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	yk.SetCertificate(piv.DefaultManagementKey, piv.SlotKeyManagement, selfSignedCert)
 }
 
 func dumpCert(cert *x509.Certificate, t *testing.T) {
