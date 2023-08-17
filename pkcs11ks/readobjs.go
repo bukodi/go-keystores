@@ -138,8 +138,23 @@ func getP11Attributes[T CkaStruct](sess *Pkcs11Session, hObj p11api.ObjectHandle
 	}
 	attrs, err := sess.ctx.GetAttributeValue(sess.hSession, hObj, attrTemplate)
 	if err != nil {
-		return keystores.ErrorHandler(err)
+		if p11Err, ok := err.(p11api.Error); ok && p11Err == 0x12 {
+			attrs = make([]*p11api.Attribute, 0)
+			// Get attributes one by one
+			for _, attrDef := range attrTemplate {
+				oneAttrs, err := sess.ctx.GetAttributeValue(sess.hSession, hObj, []*p11api.Attribute{attrDef})
+				if err != nil {
+					//ckaDesc := CkaDescByCode(attrDef.Type)
+					//fmt.Fprintf(os.Stderr, "cant read attribute: %s (%s)\n", ckaDesc.name, ckaDesc.desc)
+				} else {
+					attrs = append(attrs, oneAttrs[0])
+				}
+			}
+		} else {
+			return keystores.ErrorHandler(err)
+		}
 	}
+
 	err = ckaStructFromP11Attrs(ckaStruct, attrs, ckULONGIs32bit)
 	if err != nil {
 		return keystores.ErrorHandler(err)

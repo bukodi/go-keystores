@@ -23,7 +23,11 @@ func (ks *Pkcs11KeyStore) aquireSession() (*Pkcs11Session, error) {
 		return nil, keystores.ErrorHandler(err, ks)
 	}
 
-	var pin = "1234" // TODO use callback
+	pin, err := ks.provider.PINAuthenticator(ks.Name(), "", false)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err, ks)
+	}
+
 	if err = ks.provider.pkcs11Ctx.Login(s.hSession, p11api.CKU_USER, pin); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}

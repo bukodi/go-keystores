@@ -15,8 +15,9 @@ type Pkcs11Provider struct {
 	// TODO: support multiple driver paths
 	driverPath string
 	// From Pkcs11 spec: CK_ULONG will sometimes be 32 bits, and sometimes perhaps 64 bits)
-	ckULONGis32bit bool
-	pkcs11Ctx      *p11api.Ctx
+	ckULONGis32bit   bool
+	pkcs11Ctx        *p11api.Ctx
+	PINAuthenticator func(keystoreDesc string, keyDesc string, isSO bool) (string, error)
 }
 
 // Check whether implements the keystores.Provider interface

@@ -109,6 +109,9 @@ func TestSoftHSMWithLowLevelAPI(t *testing.T) {
 func TestSoftHSM2KeyStore(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
+		return "1234", nil
+	}
 
 	ksList, err := p.KeyStores()
 	if err != nil {
@@ -211,7 +214,7 @@ func TestRsaGenSignVerify(t *testing.T) {
 func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
 	kps, err := ks.KeyPairs(true)
 	if err != nil {
-		t.Fatalf("%#v", err)
+		t.Fatalf("%#+v", err)
 	}
 	if len(kps) == 0 {
 		t.Logf("No key pairs.")
