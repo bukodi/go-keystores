@@ -39,7 +39,7 @@ func (ws withStack) String() string {
 const maxDumpDepth = 5
 
 func (ws withStack) GoString() string {
-	msg := fmt.Sprintf("%#v", ws.cause)
+	msg := fmt.Sprintf("%+v", ws.cause)
 	if ws.stack != nil && len(ws.stack) > 0 {
 		for i := 0; i < len(ws.stack) && i < maxDumpDepth; i++ {
 			fn := runtime.FuncForPC(ws.stack[i])
@@ -54,6 +54,9 @@ func (ws withStack) GoString() string {
 		}
 	} else {
 		msg += "\n  <stack trace not available>"
+	}
+	if ws.cause != nil {
+		msg += "\nCaused by: " + fmt.Sprintf("%#v", ws.cause)
 	}
 	return msg
 }

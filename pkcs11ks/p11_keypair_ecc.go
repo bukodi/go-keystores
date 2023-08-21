@@ -204,6 +204,8 @@ func (kp *Pkcs11KeyPair) ecdhAgree(sess *Pkcs11Session, remote *ecdsa.PublicKey)
 		p11api.NewMechanism(p11api.CKM_ECDH1_DERIVE, &params),
 	}
 
+	fmt.Printf("template before DeriveKey (ckULONGis32bit is %t): \n%s", kp.keyStore.provider.ckULONGis32bit, dumpAttrs(template))
+
 	var hSharedKey p11api.ObjectHandle
 	if hSharedKey, err = sess.ctx.DeriveKey(sess.hSession, mech, hPrivKey, template); err != nil {
 		return nil, keystores.ErrorHandler(err)

@@ -34,10 +34,14 @@ var _ keystores.KeyPair = &Pkcs11KeyPair{}
 func (kp *Pkcs11KeyPair) privateKeyHandle(sess *Pkcs11Session) (hPriv p11api.ObjectHandle, retErr error) {
 	// Query priv key object by CKA_CLASS and CKA_ID
 	classBytes := bytesFrom_CK_OBJECT_CLASS(kp.commonPrivateKeyAttributes().CKA_CLASS, kp.keyStore.provider.ckULONGis32bit)
-	if err := sess.ctx.FindObjectsInit(sess.hSession, []*p11api.Attribute{
+	attrs := []*p11api.Attribute{
 		{p11api.CKA_CLASS, classBytes},
 		{p11api.CKA_ID, bytesFrom_CK_Bytes(kp.commonPrivateKeyAttributes().CKA_ID)},
-	}); err != nil {
+	}
+	fmt.Printf("attrs before FindObjectsInit (ckULONGis32bit is %t): \n%s", kp.keyStore.provider.ckULONGis32bit, dumpAttrs(attrs))
+
+	if err := sess.ctx.FindObjectsInit(sess.hSession, attrs); err != nil {
+		// TODO: when error is 0x13: CKR_ATTRIBUTE_VALUE_INVALID, dump the attrs
 		return 0, keystores.ErrorHandler(err, kp)
 	}
 	defer func() {
