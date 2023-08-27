@@ -14,3 +14,7 @@ Manage cryptographic keystores.
 https://docs.oracle.com/cd/E36784_01/html/E36870/pktool-1.html
 
 https://smallstep.com/blog/everything-pki/
+
+### PKCS 11 Samples in Go using SoftHSM:
+
+https://github.com/salrashid123/go_pkcs11
