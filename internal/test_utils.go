@@ -211,11 +211,15 @@ func KeyPairTest(t *testing.T, ks keystores.KeyStore, alg keystores.KeyAlgorithm
 		}
 
 		if kp.KeyUsage()[keystores.KeyUsageDecrypt] {
-			//EncryptDecryptTest(t, kp)
+			t.Run(fmt.Sprintf("%s %v Decrypt", alg.Name, keyUsage), func(t *testing.T) {
+				EncryptDecryptTest(t, kp)
+			})
 		}
 
 		if kp.KeyUsage()[keystores.KeyUsageAgree] {
-			ECDHTest(t, kp)
+			t.Run(fmt.Sprintf("%s %v ECDH", alg.Name, keyUsage), func(t *testing.T) {
+				ECDHTest(t, kp)
+			})
 		}
 
 	})

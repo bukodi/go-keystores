@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/pkcs11ks"
+	"strconv"
 )
 
 // Example:
@@ -36,6 +37,8 @@ func main() {
 		fmt.Printf("FATAL: Can't open eToken. %+v\n", err)
 		return
 	}
+
+	fmt.Printf("Size of int: %d\n", strconv.IntSize)
 
 	fmt.Printf("INFO : Token found. (name:%s, serial:%s)\n", ks.Name(), ks.Id())
 
