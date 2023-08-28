@@ -1,6 +1,7 @@
 package yubiks
 
 import (
+	"crypto"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/go-piv/piv-go/piv"
@@ -104,6 +105,6 @@ func (ks *YkKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystores.Ke
 	}
 }
 
-func (ks *YkKeyStore) ImportKeyPair(der []byte) (kp keystores.KeyPair, err error) {
+func (ks *YkKeyStore) ImportKeyPair(privKey crypto.PrivateKey, opts keystores.GenKeyPairOpts) (kp keystores.KeyPair, err error) {
 	panic("implement me")
 }

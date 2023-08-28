@@ -2,10 +2,12 @@ package keystores
 
 import (
 	"context"
+	"crypto"
 	"errors"
 )
 
 var (
+	ErrNotImplemented                  = errors.New("not implemented yet")
 	ErrAlgorithmNotSupportedByKeyStore = errors.New("algorithm not supported by key store")
 	ErrOperationNotSupportedByKeyStore = errors.New("operation not supported by key store")
 )
@@ -22,7 +24,7 @@ type KeyStore interface {
 	KeyPairById(id KeyPairId) KeyPair
 	KeyPairs(reload bool) (map[KeyPairId]KeyPair, error)
 	CreateKeyPair(opts GenKeyPairOpts) (kp KeyPair, err error)
-	ImportKeyPair(der []byte) (kp KeyPair, err error)
+	ImportKeyPair(privKey crypto.PrivateKey, opts GenKeyPairOpts) (kp KeyPair, err error)
 }
 
 type AsyncKeyStore interface {

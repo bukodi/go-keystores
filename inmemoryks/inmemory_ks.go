@@ -1,6 +1,10 @@
 package inmemoryks
 
 import (
+	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"unsafe"
@@ -97,18 +101,35 @@ func (imks *InMemoryKeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keys
 	return imkp, nil
 }
 
-func (imks *InMemoryKeyStore) ImportKeyPair(der []byte) (keystores.KeyPair, error) {
-	imkp, err := parsePKCS8PrivateKey(der)
-	if err != nil {
+func (imks *InMemoryKeyStore) ImportKeyPair(key crypto.PrivateKey, opts keystores.GenKeyPairOpts) (kp keystores.KeyPair, err error) {
+	var imkp InMemoryKeyPair
+	if rsaKey, ok := key.(*rsa.PrivateKey); ok {
+		imkp.privKey = rsaKey
+		imkp.pubKey = rsaKey.Public()
+	} else if ecKey, ok := key.(*ecdsa.PrivateKey); ok {
+		imkp.privKey = ecKey
+		imkp.pubKey = ecKey.Public()
+	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
+		imkp.privKey = edKey
+		imkp.pubKey = edKey.Public()
+	} else {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
+	}
+
+	if imkp.id, err = keystores.IdFromPublicKey(imkp.pubKey); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	imkp.keyStore = imks
-	if err := imks.persister.SaveKeyPair(imkp); err != nil {
+	if imkp.keyAlorithm, err = keystores.AlgorithmFromPublicKey(imkp.pubKey); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
-	imks.keyPairs[imkp.id] = imkp
-	return imkp, nil
+	imkp.keyStore = imks
+	if err := imks.persister.SaveKeyPair(&imkp); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	imks.keyPairs[imkp.id] = &imkp
+	return &imkp, nil
 }
 
 func CreateInMemoryKeyStore() *InMemoryKeyStore {

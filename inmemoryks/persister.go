@@ -43,7 +43,11 @@ func (p Pkcs8DirPersister) Load(imks *InMemoryKeyStore) error {
 		if err != nil {
 			return keystores.ErrorHandler(err) // TODO use multiple errors
 		}
-		_, err = imks.ImportKeyPair(der)
+		privKey, err := x509.ParsePKCS8PrivateKey(der)
+		if err != nil {
+			return keystores.ErrorHandler(err)
+		}
+		_, err = imks.ImportKeyPair(privKey, keystores.GenKeyPairOpts{})
 		if err != nil {
 			return keystores.ErrorHandler(err) // TODO use multiple errors
 		}

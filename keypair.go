@@ -59,7 +59,8 @@ type AsyncKeyPair interface {
 	Attestation(ctx context.Context, nonce []byte) (att <-chan Attestation, errCh <-chan error)
 }
 
-type GenKeyPairOpts struct {
+// GenKeyPairOpts controls the key pair generation or import
+type GenKeyPairOpts struct { // TODO: rename to KeyPairOpts
 	Algorithm  KeyAlgorithm
 	Label      string
 	KeyUsage   map[KeyUsage]bool

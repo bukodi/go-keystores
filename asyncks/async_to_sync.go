@@ -2,6 +2,7 @@ package asyncks
 
 import (
 	"context"
+	"crypto"
 	"github.com/bukodi/go-keystores"
 )
 
@@ -76,6 +77,6 @@ func (s syncKs) CreateKeyPair(opts keystores.GenKeyPairOpts) (kp keystores.KeyPa
 	panic("implement me")
 }
 
-func (s syncKs) ImportKeyPair(der []byte) (kp keystores.KeyPair, err error) {
+func (s syncKs) ImportKeyPair(privKey crypto.PrivateKey, opts keystores.GenKeyPairOpts) (kp keystores.KeyPair, err error) {
 	panic("implement me")
 }

@@ -53,7 +53,11 @@ func (imks *InMemoryKeyStore) LoadFromJKS(r io.Reader, password []byte) error {
 			if err != nil {
 				return keystores.ErrorHandler(err)
 			}
-			kp, err := imks.ImportKeyPair(pke.PrivateKey)
+			privKey, err := x509.ParsePKCS8PrivateKey(pke.PrivateKey)
+			if err != nil {
+				return keystores.ErrorHandler(err)
+			}
+			kp, err := imks.ImportKeyPair(privKey, keystores.GenKeyPairOpts{})
 			if err != nil {
 				return keystores.ErrorHandler(err)
 			}

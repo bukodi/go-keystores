@@ -2,6 +2,7 @@ package pkcs11ks
 
 import (
 	"bytes"
+	"crypto"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/utils"
@@ -169,7 +170,7 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 	}
 }
 
-func (ks *Pkcs11KeyStore) ImportKeyPair(der []byte) (kp keystores.KeyPair, err error) {
+func (ks *Pkcs11KeyStore) ImportKeyPair(privKey crypto.PrivateKey, opts keystores.GenKeyPairOpts) (kp keystores.KeyPair, err error) {
 	panic("implement me")
 }
 

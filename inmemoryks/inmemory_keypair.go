@@ -28,35 +28,6 @@ type InMemoryKeyPair struct {
 // Check whether implements the keystores.KeyPair interface
 var _ keystores.KeyPair = &InMemoryKeyPair{}
 
-func parsePKCS8PrivateKey(der []byte) (*InMemoryKeyPair, error) {
-	key, err := x509.ParsePKCS8PrivateKey(der)
-	if err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-
-	var imkp InMemoryKeyPair
-	if rsaKey, ok := key.(*rsa.PrivateKey); ok {
-		imkp.privKey = rsaKey
-		imkp.pubKey = rsaKey.Public()
-	} else if ecKey, ok := key.(*ecdsa.PrivateKey); ok {
-		imkp.privKey = ecKey
-		imkp.pubKey = ecKey.Public()
-	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
-		imkp.privKey = edKey
-		imkp.pubKey = edKey.Public()
-	} else {
-		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
-	}
-
-	if imkp.id, err = keystores.IdFromPublicKey(imkp.pubKey); err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-	if imkp.keyAlorithm, err = keystores.AlgorithmFromPublicKey(imkp.pubKey); err != nil {
-		return nil, keystores.ErrorHandler(err)
-	}
-	return &imkp, nil
-}
-
 func generateKeyPair(opts keystores.GenKeyPairOpts) (*InMemoryKeyPair, error) {
 	imkp := InMemoryKeyPair{
 		keyAlorithm: opts.Algorithm,
