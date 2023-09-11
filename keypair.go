@@ -60,12 +60,13 @@ type AsyncKeyPair interface {
 }
 
 // GenKeyPairOpts controls the key pair generation or import
-type GenKeyPairOpts struct { // TODO: rename to KeyPairOpts
+type GenKeyPairOpts struct {
 	Algorithm  KeyAlgorithm
 	Label      string
 	KeyUsage   map[KeyUsage]bool
 	Exportable bool
 	Ephemeral  bool
+	SkipPublic bool
 }
 
 func GenerateKeyPairIdFromPubKey(pubKey crypto.PublicKey) (KeyPairId, error) {

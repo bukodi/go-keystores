@@ -3,6 +3,9 @@ package pkcs11ks
 import (
 	"bytes"
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rsa"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/utils"
@@ -170,8 +173,46 @@ func (ks *Pkcs11KeyStore) CreateKeyPair(opts keystores.GenKeyPairOpts) (keystore
 	}
 }
 
-func (ks *Pkcs11KeyStore) ImportKeyPair(privKey crypto.PrivateKey, opts keystores.GenKeyPairOpts) (kp keystores.KeyPair, err error) {
-	panic("implement me")
+func (ks *Pkcs11KeyStore) ImportKeyPair(key crypto.PrivateKey, opts keystores.GenKeyPairOpts) (kp keystores.KeyPair, err error) {
+	sess, err := ks.aquireSession()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer sess.keyStore.releaseSession(sess)
+
+	tokenPersistent := !opts.Ephemeral
+	publicKeyTemplate := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
+		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
+		p11api.NewAttribute(p11api.CKA_VERIFY, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageSign]))),
+		p11api.NewAttribute(p11api.CKA_ENCRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
+		p11api.NewAttribute(p11api.CKA_WRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
+		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
+	}
+	privateKeyTemplate := []*p11api.Attribute{
+		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PRIVATE_KEY),
+		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
+		p11api.NewAttribute(p11api.CKA_SIGN, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageSign]))),
+		p11api.NewAttribute(p11api.CKA_DECRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
+		p11api.NewAttribute(p11api.CKA_UNWRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
+		p11api.NewAttribute(p11api.CKA_DERIVE, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDerive]))),
+		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
+		p11api.NewAttribute(p11api.CKA_SENSITIVE, !opts.Exportable),
+		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, opts.Exportable),
+	}
+
+	if rsaKey, ok := key.(*rsa.PrivateKey); ok {
+		kp, err := ks.importRSAKeyPair(sess, rsaKey, opts, privateKeyTemplate, publicKeyTemplate)
+		return kp, keystores.ErrorHandler(err, ks)
+	} else if ecKey, ok := key.(*ecdsa.PrivateKey); ok {
+		_ = ecKey
+		return nil, keystores.ErrorHandler(keystores.ErrNotImplemented, ks)
+	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
+		_ = edKey
+		return nil, keystores.ErrorHandler(keystores.ErrNotImplemented, ks)
+	} else {
+		return nil, keystores.ErrorHandler(fmt.Errorf("unsupported algorithm"))
+	}
 }
 
 func (ks *Pkcs11KeyStore) destroyObject(sess *Pkcs11Session, class CK_OBJECT_CLASS, id CK_Bytes, label CK_String) (objDeleted int, retErr error) {

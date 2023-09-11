@@ -143,6 +143,9 @@ func TestSoftHSM2KeyStore(t *testing.T) {
 func TestRsaGenSignVerify(t *testing.T) {
 	initSoftHSM2TestEnv(t)
 	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
+		return "1234", nil
+	}
 
 	ks, err := p.FindKeyStore("TestTokenA", "")
 	if err != nil {
@@ -153,6 +156,85 @@ func TestRsaGenSignVerify(t *testing.T) {
 	kp, err := ks.CreateKeyPair(keystores.GenKeyPairOpts{
 		Algorithm: keystores.KeyAlgRSA2048,
 		Label:     "testKey",
+		KeyUsage: map[keystores.KeyUsage]bool{
+			keystores.KeyUsageSign: true,
+		},
+		Exportable: false,
+	})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	defer func() {
+		err = kp.Destroy()
+		if err != nil {
+			dumpKeys(ks, t)
+			t.Fatalf("%+v", err)
+		}
+	}()
+
+	dumpKeys(ks, t)
+	var kpTest *Pkcs11KeyPair
+	kpSlice, err := ks.KeyPairs(true)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	for _, kp := range kpSlice {
+		if kp.Label() == "testKey" {
+			kpTest = kp.(*Pkcs11KeyPair)
+		}
+	}
+	if kpTest == nil {
+		t.Fatal(errors.New("testKp not found"))
+	} else {
+		t.Logf("Test key found: %#v", kpTest)
+	}
+
+	digest := sha256.Sum256([]byte("Hello world!"))
+	signature, err := kp.Sign(rand.Reader, digest[:], &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	err = rsa.VerifyPSS(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature, &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("RSA PSS signature verified")
+	}
+
+	signature, err = kp.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	err = rsa.VerifyPKCS1v15(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("RSA PKCS1v15 signature verified")
+	}
+
+}
+
+func TestRsaImport(t *testing.T) {
+	initSoftHSM2TestEnv(t)
+	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
+		return "1234", nil
+	}
+
+	ks, err := p.FindKeyStore("TestTokenA", "")
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	goRsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	dumpKeys(ks, t)
+	kp, err := ks.ImportKeyPair(goRsaKey, keystores.GenKeyPairOpts{
+		Algorithm: keystores.KeyAlgRSA1024,
+		Label:     "importedKKey",
 		KeyUsage: map[keystores.KeyUsage]bool{
 			keystores.KeyUsageSign: true,
 		},

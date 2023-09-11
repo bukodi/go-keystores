@@ -89,6 +89,85 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(sess *Pkcs11Session, opts keystores.G
 	return kp, nil
 }
 
+// createRSAKeyPair creates a new RSA key pair on the underlying PKCS11 keystore
+func (ks *Pkcs11KeyStore) importRSAKeyPair(sess *Pkcs11Session, rsaPrivKey *rsa.PrivateKey, opts keystores.GenKeyPairOpts, privateKeyTemplate []*p11api.Attribute, publicKeyTemplate []*p11api.Attribute) (*Pkcs11KeyPair, error) {
+	// check ops.Algorithm patches with rsaPrivKey
+	if len(opts.Algorithm.Oid) > 0 {
+		if (!opts.Algorithm.Oid.Equal(keystores.KeyAlgRSA1024.Oid)) ||
+			opts.Algorithm.RSAKeyLength != rsaPrivKey.Size()*8 {
+			return nil, keystores.ErrorHandler(fmt.Errorf("opts.Algorithm (%v) does not match with provided privateKey", opts.Algorithm))
+		}
+	}
+
+	publicKeyTemplate = append(publicKeyTemplate,
+		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_RSA),
+		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, []byte{1, 0, 1}),
+		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.RSAKeyLength),
+	)
+
+	privateKeyTemplate = append(privateKeyTemplate,
+		p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.RSAKeyLength),
+		p11api.NewAttribute(p11api.CKA_MODULUS, rsaPrivKey.PublicKey.N.Bytes()),
+		p11api.NewAttribute(p11api.CKA_PUBLIC_EXPONENT, big.NewInt(int64(rsaPrivKey.PublicKey.E)).Bytes()),
+		p11api.NewAttribute(p11api.CKA_PRIVATE_EXPONENT, big.NewInt(int64(rsaPrivKey.E)).Bytes()),
+		p11api.NewAttribute(p11api.CKA_PRIME_1, new(big.Int).Set(rsaPrivKey.Primes[0]).Bytes()),
+		p11api.NewAttribute(p11api.CKA_PRIME_2, new(big.Int).Set(rsaPrivKey.Primes[1]).Bytes()),
+		p11api.NewAttribute(p11api.CKA_EXPONENT_1, new(big.Int).Set(rsaPrivKey.Precomputed.Dp).Bytes()),
+		p11api.NewAttribute(p11api.CKA_EXPONENT_2, new(big.Int).Set(rsaPrivKey.Precomputed.Dq).Bytes()),
+		p11api.NewAttribute(p11api.CKA_COEFFICIENT, new(big.Int).Set(rsaPrivKey.Precomputed.Qinv).Bytes()),
+	)
+
+	hPriv, err := sess.ctx.CreateObject(sess.hSession, privateKeyTemplate)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var hPub p11api.ObjectHandle
+	if !opts.SkipPublic {
+		hPub, err = sess.ctx.CreateObject(sess.hSession, publicKeyTemplate)
+		if err != nil {
+			return nil, keystores.ErrorHandler(err)
+		}
+	}
+
+	var privKeyAttrs RSAPrivateKeyAttributes
+	var pubKeyAttrs RSAPublicKeyAttributes
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	kp, err := ks.newRSAKeyPair(&privKeyAttrs, &pubKeyAttrs)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	// Generate ID
+	// TODO: implement opts.CKA_ID to caller provided CKA_ID
+	var ckaId []byte
+	if ckaId, err = hex.DecodeString(string(kp.Id())); err == nil && len(ckaId) >= 8 {
+		ckaId = ckaId[0:8]
+	} else {
+		ckaId = make([]byte, 8)
+		rand.Read(ckaId)
+	}
+	// Set attribute CKA_ID both on private and public key
+	if err = sess.ctx.SetAttributeValue(sess.hSession, hPriv,
+		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	kp.rsaPrivKeyAttrs.CKA_ID = ckaId
+	if err = sess.ctx.SetAttributeValue(sess.hSession, hPub,
+		[]*p11api.Attribute{p11api.NewAttribute(p11api.CKA_ID, ckaId)}); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	kp.rsaPubKeyAttrs.CKA_ID = ckaId
+
+	return kp, nil
+}
+
 func hashToPSSParams(hashFunction crypto.Hash) (hashAlg uint, mgfAlg uint, hashLen uint) {
 	switch hashFunction {
 	case crypto.SHA1:
