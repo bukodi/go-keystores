@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 )
 
@@ -16,6 +17,19 @@ var (
 )
 
 type KeyPairId string
+
+func PublicKeyFromPrivate(privKey crypto.PrivateKey) (crypto.PublicKey, error) {
+	type i1 interface {
+		Public() crypto.PublicKey
+	}
+
+	if o1, ok := privKey.(i1); ok {
+		pubKey := o1.Public()
+		return pubKey, nil
+	} else {
+		return nil, ErrorHandler(fmt.Errorf("%T has not Public() function", privKey))
+	}
+}
 
 func IdFromPublicKey(pubKey crypto.PublicKey) (KeyPairId, error) {
 	bytes, err := x509.MarshalPKIXPublicKey(pubKey)

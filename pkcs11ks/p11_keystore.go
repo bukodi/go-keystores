@@ -5,7 +5,9 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/rsa"
+	"encoding/hex"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/utils"
@@ -180,6 +182,24 @@ func (ks *Pkcs11KeyStore) ImportKeyPair(key crypto.PrivateKey, opts keystores.Ge
 	}
 	defer sess.keyStore.releaseSession(sess)
 
+	// Generate ID
+	// TODO: implement opts.CKA_ID to caller provided CKA_ID
+	pubKey, err := keystores.PublicKeyFromPrivate(key)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	kpId, err := keystores.IdFromPublicKey(pubKey)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	ckaId, err := hex.DecodeString(string(kpId))
+	if err == nil && len(ckaId) >= 8 {
+		ckaId = ckaId[0:8]
+	} else {
+		ckaId = make([]byte, 8)
+		rand.Read(ckaId)
+	}
+
 	tokenPersistent := !opts.Ephemeral
 	publicKeyTemplate := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PUBLIC_KEY),
@@ -188,17 +208,21 @@ func (ks *Pkcs11KeyStore) ImportKeyPair(key crypto.PrivateKey, opts keystores.Ge
 		p11api.NewAttribute(p11api.CKA_ENCRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
 		p11api.NewAttribute(p11api.CKA_WRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
+		p11api.NewAttribute(p11api.CKA_ID, ckaId),
 	}
 	privateKeyTemplate := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_PRIVATE_KEY),
+		p11api.NewAttribute(p11api.CKA_MODIFIABLE, true),
 		p11api.NewAttribute(p11api.CKA_TOKEN, tokenPersistent),
 		p11api.NewAttribute(p11api.CKA_SIGN, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageSign]))),
 		p11api.NewAttribute(p11api.CKA_DECRYPT, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDecrypt]))),
 		p11api.NewAttribute(p11api.CKA_UNWRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
 		p11api.NewAttribute(p11api.CKA_DERIVE, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDerive]))),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
-		p11api.NewAttribute(p11api.CKA_SENSITIVE, !opts.Exportable),
-		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, opts.Exportable),
+		//p11api.NewAttribute(p11api.CKA_SENSITIVE, false),
+		//p11api.NewAttribute(p11api.CKA_EXTRACTABLE, true),
+		p11api.NewAttribute(p11api.CKA_ID, ckaId),
+		p11api.NewAttribute(p11api.CKA_PRIVATE, true),
 	}
 
 	if rsaKey, ok := key.(*rsa.PrivateKey); ok {

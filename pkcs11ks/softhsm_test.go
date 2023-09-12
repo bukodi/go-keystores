@@ -234,7 +234,7 @@ func TestRsaImport(t *testing.T) {
 	dumpKeys(ks, t)
 	kp, err := ks.ImportKeyPair(goRsaKey, keystores.GenKeyPairOpts{
 		Algorithm: keystores.KeyAlgRSA1024,
-		Label:     "importedKKey",
+		Label:     "importedKey",
 		KeyUsage: map[keystores.KeyUsage]bool{
 			keystores.KeyUsageSign: true,
 		},
@@ -258,14 +258,14 @@ func TestRsaImport(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 	for _, kp := range kpSlice {
-		if kp.Label() == "testKey" {
+		if kp.Label() == "importedKey" {
 			kpTest = kp.(*Pkcs11KeyPair)
 		}
 	}
 	if kpTest == nil {
-		t.Fatal(errors.New("testKp not found"))
+		t.Fatal(errors.New("importedKey not found"))
 	} else {
-		t.Logf("Test key found: %#v", kpTest)
+		t.Logf("importedKey found: %#v", kpTest)
 	}
 
 	digest := sha256.Sum256([]byte("Hello world!"))
