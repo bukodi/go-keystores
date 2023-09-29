@@ -16,36 +16,35 @@ import (
 )
 
 func (ks *Pkcs11KeyStore) newECCKeyPair(privKeyObject *ECCPrivateKeyAttributes, pubKeyObject *ECCPublicKeyAttributes) (*Pkcs11KeyPair, error) {
+	if pubKeyObject == nil || pubKeyObject.CKA_KEY_TYPE == 0 {
+		// No public key object
+		return nil, keystores.ErrorHandler(fmt.Errorf("no public key object"))
+	}
+
 	kp := Pkcs11KeyPair{
 		keyStore:        ks,
 		eccPrivKeyAttrs: privKeyObject,
 		eccPubKeyAttrs:  pubKeyObject,
 	}
-
-	if pubKeyObject.CKA_KEY_TYPE == CKK_EC {
-		ecParamsBytes := bytesFrom_CK_Bytes(pubKeyObject.CKA_EC_PARAMS)
-		keyAlg, err := parseEcParams(ecParamsBytes)
-		if err != nil {
-			return nil, keystores.ErrorHandler(err)
-		}
-		x, y, err := parseEcPoint(pubKeyObject.CKA_EC_POINT, keyAlg.ECCCurve)
-		if err != nil {
-			return nil, keystores.ErrorHandler(err)
-		}
-		ecPubKey := ecdsa.PublicKey{
-			Curve: keyAlg.ECCCurve,
-			X:     x,
-			Y:     y,
-		}
-		kp.eccPublicKey = &ecPubKey
-		kp.keyAlgorithm = keystores.KeyAlgorithm{
-			Oid:          keyAlg.Oid,
-			RSAKeyLength: 0,
-			ECCCurve:     keyAlg.ECCCurve,
-			Name:         keyAlg.Name,
-		}
-	} else {
-		return nil, keystores.ErrorHandler(errors.Errorf("unsupported elliptic curve type: CKA_KEY_TYPE=%d", pubKeyObject.CKA_KEY_TYPE))
+	keyAlg, err := parseEcParams(bytesFrom_CK_Bytes(kp.eccPubKeyAttrs.CKA_EC_PARAMS))
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	x, y, err := parseEcPoint(kp.eccPubKeyAttrs.CKA_EC_POINT, keyAlg.ECCCurve)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	ecPubKey := ecdsa.PublicKey{
+		Curve: keyAlg.ECCCurve,
+		X:     x,
+		Y:     y,
+	}
+	kp.eccPublicKey = &ecPubKey
+	kp.keyAlgorithm = keystores.KeyAlgorithm{
+		Oid:          keyAlg.Oid,
+		RSAKeyLength: 0,
+		ECCCurve:     keyAlg.ECCCurve,
+		Name:         keyAlg.Name,
 	}
 
 	id, err := keystores.GenerateKeyPairIdFromPubKey(kp.eccPublicKey)
@@ -116,6 +115,92 @@ func (ks *Pkcs11KeyStore) createECCKeyPair(sess *Pkcs11Session, opts keystores.G
 	kp.eccPubKeyAttrs.CKA_ID = ckaId
 
 	return kp, nil
+}
+
+// createRSAKeyPair creates a new RSA key pair on the underlying PKCS11 keystore
+func (ks *Pkcs11KeyStore) importECCKeyPair(sess *Pkcs11Session, ecdsaPrivKey *ecdsa.PrivateKey, opts keystores.GenKeyPairOpts, privateKeyTemplate []*p11api.Attribute, publicKeyTemplate []*p11api.Attribute) (*Pkcs11KeyPair, error) {
+	// check ops.Algorithm patches with ecdsaPrivKey
+	if opts.Algorithm.ECCCurve.Params().Name != ecdsaPrivKey.Curve.Params().Name {
+		return nil, keystores.ErrorHandler(fmt.Errorf("opts.Algorithm (%v) does not match with provided privateKey", opts.Algorithm))
+	}
+
+	oidUint8, err := asn1.Marshal(opts.Algorithm.Oid)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	oidBytes := make([]byte, len(oidUint8))
+	for i, ui8 := range oidUint8 {
+		oidBytes[i] = ui8
+	}
+
+	ecdsaPubKey := ecdsaPrivKey.PublicKey
+	rawValue := asn1.RawValue{
+		Tag:   asn1.TagOctetString,
+		Bytes: elliptic.Marshal(ecdsaPubKey.Curve, ecdsaPubKey.X, ecdsaPubKey.Y),
+	}
+	marshalledPoint, err := asn1.Marshal(rawValue)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	publicKeyTemplate = append(publicKeyTemplate,
+		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_EC),
+		p11api.NewAttribute(p11api.CKA_EC_PARAMS, oidBytes),
+		p11api.NewAttribute(p11api.CKA_EC_POINT, marshalledPoint),
+	)
+
+	privateKeyTemplate = append(privateKeyTemplate,
+		//p11api.NewAttribute(p11api.CKA_MODULUS_BITS, opts.Algorithm.RSAKeyLength),
+		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_EC),
+		p11api.NewAttribute(p11api.CKA_EC_PARAMS, oidBytes),
+		p11api.NewAttribute(p11api.CKA_VALUE, ecdsaPrivKey.D.Bytes()),
+	)
+
+	hPriv, err := sess.ctx.CreateObject(sess.hSession, privateKeyTemplate)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	hPub, err := sess.ctx.CreateObject(sess.hSession, publicKeyTemplate)
+	if err != nil {
+		sess.ctx.DestroyObject(sess.hSession, hPriv)
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var privKeyAttrs ECCPrivateKeyAttributes
+	var pubKeyAttrs ECCPublicKeyAttributes
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	kp, err := ks.newECCKeyPair(&privKeyAttrs, &pubKeyAttrs)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	return kp, nil
+}
+
+// createRSAKeyPair creates a new RSA key pair on the underlying PKCS11 keystore
+func (kp *Pkcs11KeyPair) exportECCPrivateKey(sess *Pkcs11Session) (*ecdsa.PrivateKey, error) {
+	hPrivKey, err := kp.privateKeyHandle(sess)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	var privKeyAttrs ECCPrivateKeyAttributes
+	if err := getP11Attributes(sess, hPrivKey, &privKeyAttrs, kp.keyStore.provider.ckULONGis32bit, false); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var goEccPriv ecdsa.PrivateKey
+	goEccPriv.D = privKeyAttrs.CKA_VALUE
+	goEccPriv.PublicKey.Curve = kp.eccPublicKey.Curve
+	goEccPriv.PublicKey.X = kp.eccPublicKey.X
+	goEccPriv.PublicKey.Y = kp.eccPublicKey.Y
+	return &goEccPriv, nil
 }
 
 func parseEcParams(bytes []byte) (*keystores.KeyAlgorithm, error) {

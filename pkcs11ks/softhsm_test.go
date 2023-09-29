@@ -2,6 +2,8 @@ package pkcs11ks
 
 import (
 	"crypto"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -234,11 +236,11 @@ func TestRsaImport(t *testing.T) {
 	dumpKeys(ks, t)
 	kp, err := ks.ImportKeyPair(goRsaKey, keystores.GenKeyPairOpts{
 		Algorithm: keystores.KeyAlgRSA1024,
-		Label:     "importedKey",
+		Label:     "importedRSAKey",
 		KeyUsage: map[keystores.KeyUsage]bool{
 			keystores.KeyUsageSign: true,
 		},
-		Exportable: false,
+		Exportable: true,
 	})
 	if err != nil {
 		t.Fatalf("%+v", err)
@@ -258,7 +260,7 @@ func TestRsaImport(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 	for _, kp := range kpSlice {
-		if kp.Label() == "importedKey" {
+		if kp.Label() == "importedRSAKey" {
 			kpTest = kp.(*Pkcs11KeyPair)
 		}
 	}
@@ -291,12 +293,98 @@ func TestRsaImport(t *testing.T) {
 		t.Logf("RSA PKCS1v15 signature verified")
 	}
 
+	exportedRsa, err := kp.ExportPrivate()
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("Exported RSA: %+v", exportedRsa)
+	}
+
+}
+
+func TestEccImport(t *testing.T) {
+	initSoftHSM2TestEnv(t)
+	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
+		return "1234", nil
+	}
+
+	ks, err := p.FindKeyStore("TestTokenA", "")
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	goEccKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	dumpKeys(ks, t)
+	kp, err := ks.ImportKeyPair(goEccKey, keystores.GenKeyPairOpts{
+		Algorithm: keystores.KeyAlgECP256,
+		Label:     "importedECCKey",
+		KeyUsage: map[keystores.KeyUsage]bool{
+			keystores.KeyUsageSign: true,
+		},
+		Exportable: true,
+	})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	defer func() {
+		err = kp.Destroy()
+		if err != nil {
+			dumpKeys(ks, t)
+			t.Fatalf("%+v", err)
+		}
+	}()
+
+	dumpKeys(ks, t)
+	var kpTest *Pkcs11KeyPair
+	kpSlice, err := ks.KeyPairs(true)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	for _, kp := range kpSlice {
+		if kp.Label() == "importedECCKey" {
+			kpTest = kp.(*Pkcs11KeyPair)
+		}
+	}
+	if kpTest == nil {
+		t.Fatal(errors.New("importedKey not found"))
+	} else {
+		t.Logf("importedKey found: %#v", kpTest)
+	}
+
+	digest := sha256.Sum256([]byte("Hello world!"))
+	signature, err := kp.Sign(rand.Reader, digest[:], nil)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	if ecdsa.VerifyASN1(kp.Public().(*ecdsa.PublicKey), digest[:], signature) {
+		t.Logf("ECDSA signature verified")
+	} else {
+		t.Fatalf("ECDSA signature verifification failed")
+	}
+
+	goPrivKey, err := kp.ExportPrivate()
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else if eccPrivKey, ok := goPrivKey.(*ecdsa.PrivateKey); ok {
+		if eccPrivKey.D.Cmp(goEccKey.D) == 0 {
+			t.Logf("The exported and imported private keys are same")
+		} else {
+			t.Fatalf("The exported and imported private keys aren't same.\noriginal: %#v\nexported: %#v", goEccKey, eccPrivKey)
+		}
+	}
+
 }
 
 func dumpKeys(ks *Pkcs11KeyStore, t *testing.T) {
 	kps, err := ks.KeyPairs(true)
 	if err != nil {
-		t.Fatalf("%#+v", err)
+		t.Logf("Errors during query key pairs: %+v", err)
 	}
 	if len(kps) == 0 {
 		t.Logf("No key pairs.")

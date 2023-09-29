@@ -138,7 +138,7 @@ func getP11Attributes[T CkaStruct](sess *Pkcs11Session, hObj p11api.ObjectHandle
 	}
 	attrs, err := sess.ctx.GetAttributeValue(sess.hSession, hObj, attrTemplate)
 	if err != nil {
-		if p11Err, ok := err.(p11api.Error); ok && p11Err == 0x12 {
+		if p11Err, ok := err.(p11api.Error); ok && (p11Err == p11api.CKR_ATTRIBUTE_TYPE_INVALID || p11Err == p11api.CKR_ATTRIBUTE_SENSITIVE) {
 			attrs = make([]*p11api.Attribute, 0)
 			// Get attributes one by one
 			for _, attrDef := range attrTemplate {

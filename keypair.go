@@ -80,7 +80,6 @@ type GenKeyPairOpts struct {
 	KeyUsage   map[KeyUsage]bool
 	Exportable bool
 	Ephemeral  bool
-	SkipPublic bool
 }
 
 func GenerateKeyPairIdFromPubKey(pubKey crypto.PublicKey) (KeyPairId, error) {

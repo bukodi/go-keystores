@@ -104,16 +104,24 @@ func (ks *Pkcs11KeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairI
 		privIdBytes := privKeyAttrs.CKA_ID
 		var pubKeyAttrs *RSAPublicKeyAttributes
 		for _, p11RSAPubKey := range ks.knownRSAPubKeys {
-			pubIdBytes := p11RSAPubKey.CommonKeyAttributes.CKA_ID
-			if bytes.Equal(privIdBytes, pubIdBytes) {
+			if !bytes.Equal(privIdBytes, p11RSAPubKey.CommonKeyAttributes.CKA_ID) {
+				continue
+			}
+			if pubKeyAttrs != nil {
+				retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("more than one RSA public key with id: %v", privIdBytes)))
+			} else {
 				pubKeyAttrs = p11RSAPubKey
 			}
 		}
-		// Create then KeyPair object
-		if kp, err := ks.newRSAKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		if pubKeyAttrs == nil {
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("no RSA public key with id: %v", privIdBytes)))
 		} else {
-			keyPairs[kp.Id()] = kp
+			// Create then KeyPair object
+			if kp, err := ks.newRSAKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
+				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+			} else {
+				keyPairs[kp.Id()] = kp
+			}
 		}
 	}
 	for _, privKeyAttrs := range ks.knownECCPrivKeys {
@@ -121,16 +129,24 @@ func (ks *Pkcs11KeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairI
 		privIdBytes := privKeyAttrs.CKA_ID
 		var pubKeyAttrs *ECCPublicKeyAttributes
 		for _, pubKeyObj := range ks.knownECCPubKeys {
-			pubIdBytes := pubKeyObj.CommonKeyAttributes.CKA_ID
-			if bytes.Equal(privIdBytes, pubIdBytes) {
+			if !bytes.Equal(privIdBytes, pubKeyObj.CommonKeyAttributes.CKA_ID) {
+				continue
+			}
+			if pubKeyAttrs != nil {
+				retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("more than one ECC public key with id: %v", privIdBytes)))
+			} else {
 				pubKeyAttrs = pubKeyObj
 			}
 		}
-		// Create then KeyPair object
-		if kp, err := ks.newECCKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		if pubKeyAttrs == nil {
+			retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("no ECC public key with id: %v", privIdBytes)))
 		} else {
-			keyPairs[kp.Id()] = kp
+			// Create then KeyPair object
+			if kp, err := ks.newECCKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
+				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+			} else {
+				keyPairs[kp.Id()] = kp
+			}
 		}
 	}
 	return keyPairs, retErr
@@ -219,8 +235,8 @@ func (ks *Pkcs11KeyStore) ImportKeyPair(key crypto.PrivateKey, opts keystores.Ge
 		p11api.NewAttribute(p11api.CKA_UNWRAP, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageUnwrap]))),
 		p11api.NewAttribute(p11api.CKA_DERIVE, bytesFrom_CK_BBOOL(CK_BBOOL(opts.KeyUsage[keystores.KeyUsageDerive]))),
 		p11api.NewAttribute(p11api.CKA_LABEL, opts.Label),
-		//p11api.NewAttribute(p11api.CKA_SENSITIVE, false),
-		//p11api.NewAttribute(p11api.CKA_EXTRACTABLE, true),
+		p11api.NewAttribute(p11api.CKA_SENSITIVE, !opts.Exportable),
+		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, opts.Exportable),
 		p11api.NewAttribute(p11api.CKA_ID, ckaId),
 		p11api.NewAttribute(p11api.CKA_PRIVATE, true),
 	}
@@ -228,9 +244,9 @@ func (ks *Pkcs11KeyStore) ImportKeyPair(key crypto.PrivateKey, opts keystores.Ge
 	if rsaKey, ok := key.(*rsa.PrivateKey); ok {
 		kp, err := ks.importRSAKeyPair(sess, rsaKey, opts, privateKeyTemplate, publicKeyTemplate)
 		return kp, keystores.ErrorHandler(err, ks)
-	} else if ecKey, ok := key.(*ecdsa.PrivateKey); ok {
-		_ = ecKey
-		return nil, keystores.ErrorHandler(keystores.ErrNotImplemented, ks)
+	} else if eccKey, ok := key.(*ecdsa.PrivateKey); ok {
+		kp, err := ks.importECCKeyPair(sess, eccKey, opts, privateKeyTemplate, publicKeyTemplate)
+		return kp, keystores.ErrorHandler(err, ks)
 	} else if edKey, ok := key.(ed25519.PrivateKey); ok {
 		_ = edKey
 		return nil, keystores.ErrorHandler(keystores.ErrNotImplemented, ks)

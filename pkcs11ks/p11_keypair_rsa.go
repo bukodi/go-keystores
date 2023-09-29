@@ -123,12 +123,10 @@ func (ks *Pkcs11KeyStore) importRSAKeyPair(sess *Pkcs11Session, rsaPrivKey *rsa.
 		return nil, keystores.ErrorHandler(err)
 	}
 
-	var hPub p11api.ObjectHandle
-	if !opts.SkipPublic {
-		hPub, err = sess.ctx.CreateObject(sess.hSession, publicKeyTemplate)
-		if err != nil {
-			return nil, keystores.ErrorHandler(err)
-		}
+	hPub, err := sess.ctx.CreateObject(sess.hSession, publicKeyTemplate)
+	if err != nil {
+		sess.ctx.DestroyObject(sess.hSession, hPriv)
+		return nil, keystores.ErrorHandler(err)
 	}
 
 	var privKeyAttrs RSAPrivateKeyAttributes
@@ -146,6 +144,30 @@ func (ks *Pkcs11KeyStore) importRSAKeyPair(sess *Pkcs11Session, rsaPrivKey *rsa.
 	}
 
 	return kp, nil
+}
+
+// createRSAKeyPair creates a new RSA key pair on the underlying PKCS11 keystore
+func (kp *Pkcs11KeyPair) exportRSAPrivateKey(sess *Pkcs11Session) (*rsa.PrivateKey, error) {
+	hPrivKey, err := kp.privateKeyHandle(sess)
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	var privKeyAttrs RSAPrivateKeyAttributes
+	if err := getP11Attributes(sess, hPrivKey, &privKeyAttrs, kp.keyStore.provider.ckULONGis32bit, false); err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+
+	var goRsa rsa.PrivateKey
+	goRsa.Primes = append(goRsa.Primes, privKeyAttrs.CKA_PRIME_1)
+	if privKeyAttrs.CKA_PRIME_2 != nil {
+		goRsa.Primes = append(goRsa.Primes, privKeyAttrs.CKA_PRIME_2)
+	}
+	goRsa.D = privKeyAttrs.CKA_PRIVATE_EXPONENT
+
+	goRsa.PublicKey.N = privKeyAttrs.CKA_MODULUS
+	goRsa.PublicKey.E = int(((*big.Int)(privKeyAttrs.CKA_PUBLIC_EXPONENT)).Int64())
+	goRsa.Precompute()
+	return &goRsa, nil
 }
 
 func hashToPSSParams(hashFunction crypto.Hash) (hashAlg uint, mgfAlg uint, hashLen uint) {

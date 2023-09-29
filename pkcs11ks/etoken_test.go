@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -107,7 +108,7 @@ func TestEtokenRsaImport(t *testing.T) {
 	dumpKeys(ks, t)
 	kp, err := ks.ImportKeyPair(goRsaKey, keystores.GenKeyPairOpts{
 		Algorithm: keystores.KeyAlgRSA2048,
-		Label:     "importedKey",
+		Label:     "importedRSAKey",
 		KeyUsage: map[keystores.KeyUsage]bool{
 			keystores.KeyUsageSign: true,
 		},
@@ -131,14 +132,94 @@ func TestEtokenRsaImport(t *testing.T) {
 		t.Fatalf("%+v", err)
 	}
 	for _, kp := range kpSlice {
-		if kp.Label() == "importedKey" {
+		if kp.Label() == "importedRSAKey" {
 			kpTest = kp.(*Pkcs11KeyPair)
 		}
 	}
 	if kpTest == nil {
-		t.Fatal(errors.New("importedKey not found"))
+		t.Fatal(errors.New("importedRSAKey not found"))
 	} else {
-		t.Logf("importedKey found: %#v", kpTest)
+		t.Logf("importedRSAKey found: %#v", kpTest)
+	}
+
+	digest := sha256.Sum256([]byte("Hello world!"))
+	signature, err := kp.Sign(rand.Reader, digest[:], &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	err = rsa.VerifyPSS(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature, &rsa.PSSOptions{Hash: crypto.SHA256})
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("RSA PSS signature verified")
+	}
+
+	signature, err = kp.Sign(rand.Reader, digest[:], crypto.SHA256)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	err = rsa.VerifyPKCS1v15(kp.Public().(*rsa.PublicKey), crypto.SHA256, digest[:], signature)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	} else {
+		t.Logf("RSA PKCS1v15 signature verified")
+	}
+
+}
+
+func TestEtokenECCImport(t *testing.T) {
+	p := NewPkcs11Provider(Pkcs11Config{etoken11Lib})
+	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
+		return "Passw0rd", nil
+	}
+
+	ks, err := p.FindKeyStore("MDATestToken5110", "0255df11")
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	t.Logf("%s: %s", ks.Id(), ks.Name())
+
+	goECCKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+
+	dumpKeys(ks, t)
+	kp, err := ks.ImportKeyPair(goECCKey, keystores.GenKeyPairOpts{
+		Algorithm: keystores.KeyAlgECP256,
+		Label:     "importedECCKey",
+		KeyUsage: map[keystores.KeyUsage]bool{
+			keystores.KeyUsageSign: true,
+		},
+		Exportable: false,
+	})
+	if err != nil {
+		t.Fatalf("%#v", err)
+	}
+	defer func() {
+		err = kp.Destroy()
+		if err != nil {
+			dumpKeys(ks, t)
+			t.Fatalf("%+v", err)
+		}
+	}()
+
+	dumpKeys(ks, t)
+	var kpTest *Pkcs11KeyPair
+	kpSlice, err := ks.KeyPairs(true)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	for _, kp := range kpSlice {
+		if kp.Label() == "importedECCKey" {
+			kpTest = kp.(*Pkcs11KeyPair)
+		}
+	}
+	if kpTest == nil {
+		t.Fatal(errors.New("importedECCKey not found"))
+	} else {
+		t.Logf("importedECCKey found: %#v", kpTest)
 	}
 
 	digest := sha256.Sum256([]byte("Hello world!"))

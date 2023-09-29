@@ -38,7 +38,6 @@ func (kp *Pkcs11KeyPair) privateKeyHandle(sess *Pkcs11Session) (hPriv p11api.Obj
 		{p11api.CKA_CLASS, classBytes},
 		{p11api.CKA_ID, bytesFrom_CK_Bytes(kp.commonPrivateKeyAttributes().CKA_ID)},
 	}
-	fmt.Printf("attrs before FindObjectsInit (ckULONGis32bit is %t): \n%s", kp.keyStore.provider.ckULONGis32bit, dumpAttrs(attrs))
 
 	if err := sess.ctx.FindObjectsInit(sess.hSession, attrs); err != nil {
 		// TODO: when error is 0x13: CKR_ATTRIBUTE_VALUE_INVALID, dump the attrs
@@ -86,7 +85,7 @@ func (kp *Pkcs11KeyPair) Label() string {
 			l = string(kp.rsaPubKeyAttrs.CKA_LABEL)
 		}
 		if len(l) == 0 {
-			return "<no lable>"
+			return "<no label>"
 		}
 	}
 	return l
@@ -181,7 +180,19 @@ func (kp *Pkcs11KeyPair) ECDH(remote *ecdsa.PublicKey) ([]byte, error) {
 }
 
 func (kp *Pkcs11KeyPair) ExportPrivate() (privKey crypto.PrivateKey, err error) {
-	panic("implement me")
+	sess, err := kp.keyStore.aquireSession()
+	if err != nil {
+		return nil, keystores.ErrorHandler(err)
+	}
+	defer sess.keyStore.releaseSession(sess)
+
+	if kp.rsaPublicKey != nil {
+		return kp.exportRSAPrivateKey(sess)
+	} else if kp.eccPublicKey != nil {
+		return kp.exportECCPrivateKey(sess)
+	} else {
+		return nil, keystores.ErrorHandler(keystores.ErrAlgorithmNotSupportedByKeyStore)
+	}
 }
 
 func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
