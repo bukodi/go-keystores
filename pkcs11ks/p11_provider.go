@@ -1,9 +1,9 @@
 package pkcs11ks
 
 import (
+	"errors"
 	"fmt"
 	"github.com/bukodi/go-keystores"
-	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
 )
 
@@ -83,7 +83,7 @@ func (p *Pkcs11Provider) KeyStores() ([]keystores.KeyStore, error) {
 		}
 		si, err1 := p.pkcs11Ctx.GetSlotInfo(slotId)
 		if err1 != nil {
-			err = utils.CollectError(err, keystores.ErrorHandler(err1, p))
+			err = errors.Join(err, keystores.ErrorHandler(err1, p))
 			continue
 		}
 		ks := Pkcs11KeyStore{

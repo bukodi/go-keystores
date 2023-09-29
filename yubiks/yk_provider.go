@@ -1,9 +1,9 @@
 package yubiks
 
 import (
+	"errors"
 	"fmt"
 	"github.com/bukodi/go-keystores"
-	"github.com/bukodi/go-keystores/utils"
 	"github.com/go-piv/piv-go/piv"
 	"strings"
 )
@@ -54,12 +54,12 @@ func (p *YkProvider) KeyStores() ([]keystores.KeyStore, error) {
 		}
 		pivYk, err := piv.Open(card)
 		if err != nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, p))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(err, p))
 			continue
 		}
 		serialInt, err := pivYk.Serial()
 		if err != nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, p))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(err, p))
 			continue
 		}
 

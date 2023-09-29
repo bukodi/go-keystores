@@ -8,9 +8,9 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/bukodi/go-keystores"
-	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
 )
 
@@ -108,17 +108,17 @@ func (ks *Pkcs11KeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairI
 				continue
 			}
 			if pubKeyAttrs != nil {
-				retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("more than one RSA public key with id: %v", privIdBytes)))
+				retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("more than one RSA public key with id: %v", privIdBytes)))
 			} else {
 				pubKeyAttrs = p11RSAPubKey
 			}
 		}
 		if pubKeyAttrs == nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("no RSA public key with id: %v", privIdBytes)))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("no RSA public key with id: %v", privIdBytes)))
 		} else {
 			// Create then KeyPair object
 			if kp, err := ks.newRSAKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
-				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 			} else {
 				keyPairs[kp.Id()] = kp
 			}
@@ -133,17 +133,17 @@ func (ks *Pkcs11KeyStore) KeyPairs(reload bool) (keyPairs map[keystores.KeyPairI
 				continue
 			}
 			if pubKeyAttrs != nil {
-				retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("more than one ECC public key with id: %v", privIdBytes)))
+				retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("more than one ECC public key with id: %v", privIdBytes)))
 			} else {
 				pubKeyAttrs = pubKeyObj
 			}
 		}
 		if pubKeyAttrs == nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(fmt.Errorf("no ECC public key with id: %v", privIdBytes)))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("no ECC public key with id: %v", privIdBytes)))
 		} else {
 			// Create then KeyPair object
 			if kp, err := ks.newECCKeyPair(privKeyAttrs, pubKeyAttrs); err != nil {
-				retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 			} else {
 				keyPairs[kp.Id()] = kp
 			}
@@ -273,7 +273,7 @@ func (ks *Pkcs11KeyStore) destroyObject(sess *Pkcs11Session, class CK_OBJECT_CLA
 	}
 	defer func() {
 		err := sess.ctx.FindObjectsFinal(sess.hSession)
-		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 	}()
 
 	// Delete objects
@@ -283,7 +283,7 @@ func (ks *Pkcs11KeyStore) destroyObject(sess *Pkcs11Session, class CK_OBJECT_CLA
 	}
 	for _, hObj := range hObjs {
 		if err := sess.ctx.DestroyObject(sess.hSession, hObj); err != nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err, ks))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(err, ks))
 		} else {
 			objDeleted++
 		}

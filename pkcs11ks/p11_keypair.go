@@ -4,11 +4,10 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"errors"
 	"fmt"
 	"github.com/bukodi/go-keystores"
-	"github.com/bukodi/go-keystores/utils"
 	p11api "github.com/miekg/pkcs11"
-	"github.com/pkg/errors"
 	"io"
 )
 
@@ -45,7 +44,7 @@ func (kp *Pkcs11KeyPair) privateKeyHandle(sess *Pkcs11Session) (hPriv p11api.Obj
 	}
 	defer func() {
 		err := sess.ctx.FindObjectsFinal(sess.hSession)
-		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 	}()
 
 	hObjs, _, err := sess.ctx.FindObjects(sess.hSession, 100)
@@ -203,20 +202,20 @@ func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
 	defer sess.keyStore.releaseSession(sess)
 
 	if cntDelete, err := kp.keyStore.destroyObject(sess, kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID, ""); err != nil {
-		retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+		retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 	} else if cntDelete > 1 {
-		retErr = utils.CollectError(retErr, keystores.ErrorHandler(errors.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID)))
+		retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID)))
 	} else if cntDelete == 0 {
-		retErr = utils.CollectError(retErr, keystores.ErrorHandler(errors.Errorf("private key not deleted (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID)))
+		retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("private key not deleted (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPrivateKeyAttributes().CKA_CLASS, kp.commonPrivateKeyAttributes().CKA_ID)))
 	}
 
 	if kp.commonPublicKeyAttributes() != nil {
 		if cntDelete, err := kp.keyStore.destroyObject(sess, kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID, ""); err != nil {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(err))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 		} else if cntDelete > 1 {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(errors.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
 		} else if cntDelete == 0 {
-			retErr = utils.CollectError(retErr, keystores.ErrorHandler(errors.Errorf("public key not deleted (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("public key not deleted (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
 		}
 	}
 
@@ -232,10 +231,10 @@ func (kp *Pkcs11KeyPair) Verify(signature []byte, digest []byte, opts crypto.Sig
 		if ecdsa.VerifyASN1(eccPub, digest[:], signature) {
 			return nil
 		} else {
-			return keystores.ErrorHandler(errors.Errorf("signature validation failed"))
+			return keystores.ErrorHandler(fmt.Errorf("signature validation failed"))
 		}
 	} else {
-		return keystores.ErrorHandler(errors.Errorf("not implemented"))
+		return keystores.ErrorHandler(fmt.Errorf("not implemented"))
 	}
 
 }
