@@ -1,6 +1,10 @@
 # go-keystores
 
 Manage cryptographic keystores.
+# Object model
+
+## Keystore provider
+A keystore provider is a software module that provides a keystore implementation. It can create and/or open a keystore instance. A keystore provider can the built-in in-memory provider, an interface to a specific a hardware, or a connection factory to a cloud service.
 
 # Usage examples
 ## How to use Keystore to protect TLS key 
