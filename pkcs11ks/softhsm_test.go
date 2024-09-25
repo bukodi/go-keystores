@@ -11,9 +11,6 @@ import (
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/internal"
 	p11api "github.com/miekg/pkcs11"
-	"github.com/rainycape/dl"
-	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -21,18 +18,13 @@ import (
 	"testing"
 )
 
-var softhsm2Lib = "/usr/local/lib/softhsm/libsofthsm2.so"
-
-//var softhsm2Lib = "/usr/lib/softhsm/libsofthsm2.so"
-
-//var softhsm2Lib = "/opt/SoftHSMv2/lib/softhsm/libsofthsm2.so"
-
-//var softhsm2Lib = "libsofthsm2.so"
+var softhsm2Lib = ""
 
 func initSoftHSM2TestEnv(t *testing.T) {
-	lib := os.Getenv("SOFTHSM2_LIB")
-	if lib != "" {
-		softhsm2Lib = lib
+	if libPath, err := findSofthsmDriver(); err != nil {
+		t.Fatalf("can't find driver: %+v", err)
+	} else {
+		softhsm2Lib = libPath
 	}
 
 	tmpDir := t.TempDir()
@@ -67,22 +59,14 @@ func copyDir(source, destination string) error {
 		if info.IsDir() {
 			return os.Mkdir(filepath.Join(destination, relPath), 0755)
 		} else {
-			var data, err1 = ioutil.ReadFile(filepath.Join(source, relPath))
+			var data, err1 = os.ReadFile(filepath.Join(source, relPath))
 			if err1 != nil {
 				return err1
 			}
-			return ioutil.WriteFile(filepath.Join(destination, relPath), data, 0777)
+			return os.WriteFile(filepath.Join(destination, relPath), data, 0777)
 		}
 	})
 	return err
-}
-
-func TestDloadLib(t *testing.T) {
-	lib, err := dl.Open(softhsm2Lib, 0)
-	if err != nil {
-		log.Fatalln(err)
-	}
-	defer lib.Close()
 }
 
 func TestSoftHSMWithLowLevelAPI(t *testing.T) {
@@ -110,7 +94,7 @@ func TestSoftHSMWithLowLevelAPI(t *testing.T) {
 
 func TestSoftHSM2KeyStore(t *testing.T) {
 	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "1234", nil
 	}
@@ -144,7 +128,7 @@ func TestSoftHSM2KeyStore(t *testing.T) {
 
 func TestRsaGenSignVerify(t *testing.T) {
 	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "1234", nil
 	}
@@ -218,7 +202,7 @@ func TestRsaGenSignVerify(t *testing.T) {
 
 func TestRsaImport(t *testing.T) {
 	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "1234", nil
 	}
@@ -304,7 +288,7 @@ func TestRsaImport(t *testing.T) {
 
 func TestEccImport(t *testing.T) {
 	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{softhsm2Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "1234", nil
 	}

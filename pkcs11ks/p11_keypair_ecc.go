@@ -275,7 +275,8 @@ func (kp *Pkcs11KeyPair) ecdhAgree(sess *Pkcs11Session, remote *ecdsa.PublicKey)
 	template := []*p11api.Attribute{
 		p11api.NewAttribute(p11api.CKA_TOKEN, false),
 		p11api.NewAttribute(p11api.CKA_CLASS, p11api.CKO_SECRET_KEY),
-		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_GENERIC_SECRET),
+		p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_AES),
+		//p11api.NewAttribute(p11api.CKA_KEY_TYPE, p11api.CKK_GENERIC_SECRET),
 		p11api.NewAttribute(p11api.CKA_SENSITIVE, false),
 		p11api.NewAttribute(p11api.CKA_EXTRACTABLE, true),
 		p11api.NewAttribute(p11api.CKA_ENCRYPT, true),

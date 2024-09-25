@@ -16,7 +16,7 @@ import (
 const etoken11Lib = "/usr/lib/libeTPkcs11.so"
 
 func TestEtoken(t *testing.T) {
-	p := NewPkcs11Provider(Pkcs11Config{etoken11Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: etoken11Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "Passw0rd", nil
 	}
@@ -88,7 +88,7 @@ func TestEtoken(t *testing.T) {
 }
 
 func TestEtokenRsaImport(t *testing.T) {
-	p := NewPkcs11Provider(Pkcs11Config{etoken11Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: etoken11Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "Passw0rd", nil
 	}
@@ -168,7 +168,7 @@ func TestEtokenRsaImport(t *testing.T) {
 }
 
 func TestEtokenECCImport(t *testing.T) {
-	p := NewPkcs11Provider(Pkcs11Config{etoken11Lib})
+	p := NewPkcs11Provider(Pkcs11Config{DriverPath: etoken11Lib})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "Passw0rd", nil
 	}

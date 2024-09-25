@@ -8,7 +8,8 @@ import (
 )
 
 type Pkcs11Config struct {
-	DriverPath string
+	DriverPath     string
+	CkULONGis32bit bool
 }
 
 type Pkcs11Provider struct {
@@ -26,7 +27,7 @@ var _ keystores.Provider = &Pkcs11Provider{}
 func NewPkcs11Provider(config Pkcs11Config) *Pkcs11Provider {
 	p := Pkcs11Provider{
 		driverPath:     config.DriverPath,
-		ckULONGis32bit: false,
+		ckULONGis32bit: config.CkULONGis32bit,
 	}
 	return &p
 }

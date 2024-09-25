@@ -14,6 +14,8 @@ import (
 // Example:
 // etokentest -PIN Passw0rd -driver /usr/lib/libeTPkcs11.so -serial 0255dfff
 
+const genNewKey = true
+
 func main() {
 
 	pDriver := flag.String("driver", "", "full path of the PKCS#11 driver lib")
@@ -27,7 +29,10 @@ func main() {
 		return
 	}
 
-	p := pkcs11ks.NewPkcs11Provider(pkcs11ks.Pkcs11Config{*pDriver})
+	p := pkcs11ks.NewPkcs11Provider(pkcs11ks.Pkcs11Config{
+		DriverPath:     *pDriver,
+		CkULONGis32bit: true,
+	})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return *pPIN, nil
 	}
@@ -42,34 +47,51 @@ func main() {
 
 	fmt.Printf("INFO : Token found. (name:%s, serial:%s)\n", ks.Name(), ks.Id())
 
-	keyLabel := "ECP256 Test Key"
-	genOpts := keystores.GenKeyPairOpts{
-		Algorithm: keystores.KeyAlgECP256,
-		Label:     keyLabel,
-		KeyUsage: map[keystores.KeyUsage]bool{
-			//keystores.KeyUsageAgree: true,
-			keystores.KeyUsageDerive: true,
-		},
-		Exportable: false,
-		Ephemeral:  false,
-	}
-
 	var kp keystores.KeyPair
-	if kp, err = ks.CreateKeyPair(genOpts); err != nil {
-		fmt.Printf("FATAL: Can't create key pair. %+v\n", err)
-		return
-	} else {
-		fmt.Printf("INFO : Key pair generated. (Label:%s)\n", kp.Label())
-	}
 
-	defer func() {
-		if err := kp.Destroy(); err != nil {
-			fmt.Printf("FATAL: Key pair destroy failed. %+v\n", err)
+	if genNewKey {
+		keyLabel := "ECP256 Test Key"
+		genOpts := keystores.GenKeyPairOpts{
+			Algorithm: keystores.KeyAlgECP256,
+			Label:     keyLabel,
+			KeyUsage: map[keystores.KeyUsage]bool{
+				//keystores.KeyUsageAgree: true,
+				keystores.KeyUsageDerive: true,
+			},
+			Exportable: false,
+			Ephemeral:  false,
+		}
+
+		if kp, err = ks.CreateKeyPair(genOpts); err != nil {
+			fmt.Printf("FATAL: Can't create key pair. %+v\n", err)
 			return
 		} else {
-			fmt.Printf("INFO : %s key pair destroyed\n", kp.Label())
+			fmt.Printf("INFO : Key pair generated. (Label:%s)\n", kp.Label())
 		}
-	}()
+
+		defer func() {
+			if err := kp.Destroy(); err != nil {
+				fmt.Printf("FATAL: Key pair destroy failed. %+v\n", err)
+				return
+			} else {
+				fmt.Printf("INFO : %s key pair destroyed\n", kp.Label())
+			}
+		}()
+	} else {
+		// Find first key
+		if kps, err := ks.KeyPairs(true); err != nil {
+			fmt.Printf("FATAL: List key pairs failed. %+v\n", err)
+			return
+		} else {
+			fmt.Printf("INFO : %d key pairs found\n", len(kps))
+			for xid, xkp := range kps {
+				fmt.Printf(" - %s %sfound\n", xkp.Algorithm().String(), xid)
+				if kp == nil {
+					kp = xkp
+				}
+			}
+		}
+	}
 
 	pub := kp.Public()
 	ecdsaPub, _ := pub.(*ecdsa.PublicKey)
