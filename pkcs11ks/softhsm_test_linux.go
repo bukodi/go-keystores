@@ -1,5 +1,13 @@
 package pkcs11ks
 
+import (
+	"fmt"
+	"github.com/rainycape/dl"
+	"log"
+	"os"
+	"testing"
+)
+
 func findSofthsmDriver() (string, error) {
 	if envLib := os.Getenv("SOFTHSM2_LIB"); envLib != "" {
 		if _, err := os.Stat(envLib); err != nil {
@@ -25,6 +33,8 @@ func findSofthsmDriver() (string, error) {
 }
 
 func TestDloadLib(t *testing.T) {
+	var softhsm2Lib = "libsofthsm2.so"
+
 	lib, err := dl.Open(softhsm2Lib, 0)
 	if err != nil {
 		log.Fatalln(err)
