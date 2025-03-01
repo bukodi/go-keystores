@@ -2,6 +2,11 @@ package pkcs11ks
 
 import (
 	"fmt"
+	"os"
+)
+
+import (
+	"fmt"
 	"github.com/rainycape/dl"
 	"log"
 	"os"

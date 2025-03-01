@@ -29,7 +29,7 @@ func main() {
 		return
 	}
 
-	p := pkcs11ks.NewPkcs11Provider(pkcs11ks.Pkcs11Config{
+	p := pkcs11ks.NewPkcs11Provider(pkcs11ks.ProviderConfig{
 		DriverPath:     *pDriver,
 		CkULONGis32bit: true,
 	})

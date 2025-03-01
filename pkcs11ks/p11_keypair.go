@@ -32,7 +32,7 @@ var _ keystores.KeyPair = &Pkcs11KeyPair{}
 
 func (kp *Pkcs11KeyPair) privateKeyHandle(sess *Pkcs11Session) (hPriv p11api.ObjectHandle, retErr error) {
 	// Query priv key object by CKA_CLASS and CKA_ID
-	classBytes := bytesFrom_CK_OBJECT_CLASS(kp.commonPrivateKeyAttributes().CKA_CLASS, kp.keyStore.provider.ckULONGis32bit)
+	classBytes := bytesFrom_CK_OBJECT_CLASS(kp.commonPrivateKeyAttributes().CKA_CLASS, kp.keyStore.driverConfig.CkULONGis32bit)
 	attrs := []*p11api.Attribute{
 		{p11api.CKA_CLASS, classBytes},
 		{p11api.CKA_ID, bytesFrom_CK_Bytes(kp.commonPrivateKeyAttributes().CKA_ID)},

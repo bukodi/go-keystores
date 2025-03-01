@@ -23,5 +23,5 @@ type DynamicProvider interface {
 }
 
 type AsyncProvider interface {
-	AsyncKeyStores(ctx context.Context) (chan KeyStore, chan error)
+	OpenAsync(ctx context.Context, onKs func(store KeyStore), onErr func(err error)) <-chan struct{}
 }

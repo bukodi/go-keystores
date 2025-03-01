@@ -8,8 +8,8 @@ import (
 	"crypto/x509"
 	"encoding/asn1"
 	"fmt"
+	"github.com/bukodi/go-keystores/utils"
 	"github.com/go-piv/piv-go/piv"
-	"github.com/pkg/errors"
 	"math/big"
 	"strings"
 )
@@ -18,7 +18,7 @@ func main() {
 	// List all smartcards connected to the system.
 	cards, err := piv.Cards()
 	if err != nil {
-		fmt.Printf("%+v", errors.WithStack(err)) // ...
+		fmt.Printf("%+v", utils.WithStack(err)) // ...
 		return
 	}
 
@@ -28,7 +28,7 @@ func main() {
 		fmt.Printf("Cahck card: %s\n", card)
 		if strings.Contains(strings.ToLower(card), "vmware") || strings.Contains(strings.ToLower(card), "yubikey") {
 			if yk, err = piv.Open(card); err != nil {
-				fmt.Printf("%+v", errors.WithStack(err)) // ...
+				fmt.Printf("%+v", utils.WithStack(err)) // ...
 				return
 			}
 			break
@@ -40,7 +40,7 @@ func main() {
 	}
 
 	if serial, err := yk.Serial(); err != nil {
-		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
+		fmt.Printf("%+v\n", utils.WithStack(err)) // ...
 		return
 	} else {
 		fmt.Printf("Yubikey serial: %v\n", serial)
@@ -57,7 +57,7 @@ func main() {
 		t.Fatalf("SetManagementKey failed: %v", err)
 	}*/
 	if md, err := yk.Metadata(piv.DefaultPIN); err != nil {
-		fmt.Printf("%+v", errors.WithStack(err))
+		fmt.Printf("%+v", utils.WithStack(err))
 		return
 	} else {
 		fmt.Printf("Metadata: %#v\n", md)
@@ -71,14 +71,14 @@ func main() {
 	}
 	pubKey, err := yk.GenerateKey(piv.DefaultManagementKey, piv.SlotAuthentication, key)
 	if err != nil {
-		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
+		fmt.Printf("%+v\n", utils.WithStack(err)) // ...
 		return
 	}
 
 	auth := piv.KeyAuth{PIN: piv.DefaultPIN}
 	privKey, err := yk.PrivateKey(piv.SlotAuthentication, pubKey, auth)
 	if err != nil {
-		fmt.Printf("%+v\n", errors.WithStack(err)) // ...
+		fmt.Printf("%+v\n", utils.WithStack(err)) // ...
 		return
 	}
 	fmt.Printf("Priv key created:\n %#v\n", privKey)
@@ -97,7 +97,7 @@ func main() {
 	}
 	out, err := s.Sign(rand.Reader, data[:], crypto.SHA256)
 	if err != nil {
-		fmt.Printf("signing failed: %+v\n", errors.WithStack(err))
+		fmt.Printf("signing failed: %+v\n", utils.WithStack(err))
 		return
 	} else {
 		fmt.Printf(`Signature of "hello": %+v`+"\n", out)
@@ -106,7 +106,7 @@ func main() {
 		R, S *big.Int
 	}
 	if _, err := asn1.Unmarshal(out, &sig); err != nil {
-		fmt.Printf("unmarshaling signature: %v\n", errors.WithStack(err))
+		fmt.Printf("unmarshaling signature: %v\n", utils.WithStack(err))
 		return
 	}
 	if !ecdsa.Verify(pub, data[:], sig.R, sig.S) {
@@ -119,7 +119,7 @@ func main() {
 	// Get the YubiKey's attestation certificate, which is signed by Yubico.
 	yubiKeyAttestationCert, err := yk.AttestationCertificate()
 	if err != nil {
-		fmt.Printf("%+v", errors.WithStack(err))
+		fmt.Printf("%+v", utils.WithStack(err))
 		return
 	}
 	fmt.Printf("Attestation cert:\n")
@@ -128,7 +128,7 @@ func main() {
 
 	slotAttestationCertificate, err := yk.Attest(piv.SlotAuthentication)
 	if err != nil {
-		fmt.Printf("%+v", errors.WithStack(err))
+		fmt.Printf("%+v", utils.WithStack(err))
 		return
 	}
 	fmt.Printf("Slot attestation cert: \n")

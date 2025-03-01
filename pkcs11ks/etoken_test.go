@@ -9,19 +9,41 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"github.com/bukodi/go-keystores"
 	"testing"
 )
 
 const etoken11Lib = "/usr/lib/libeTPkcs11.so"
 
-func TestEtoken(t *testing.T) {
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: etoken11Lib})
+func testEToken() (*Pkcs11KeyStore, error) {
+	p := NewPkcs11Provider([]DriverLibConfig{{LibPath: etoken11Lib}})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return "Passw0rd", nil
 	}
 
-	ks, err := p.FindKeyStore("MDATestToken5110", "0255df11")
+	ksSlice, err := p.KeyStores()
+	if err != nil {
+		return nil, err
+	}
+	for _, ks := range ksSlice {
+		p11Ks, ok := ks.(*Pkcs11KeyStore)
+		if !ok {
+			continue
+		}
+		if p11Ks.tokenInfo == nil || p11Ks.tokenInfo.Label != "MDATestToken5110" {
+			continue
+		}
+		if p11Ks.slotInfo == nil || p11Ks.tokenInfo.SerialNumber != "0255df11" {
+			continue
+		}
+		return p11Ks, nil
+	}
+	return nil, fmt.Errorf("test token not found")
+}
+
+func TestEtoken(t *testing.T) {
+	ks, err := testEToken()
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}
@@ -88,12 +110,7 @@ func TestEtoken(t *testing.T) {
 }
 
 func TestEtokenRsaImport(t *testing.T) {
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: etoken11Lib})
-	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
-		return "Passw0rd", nil
-	}
-
-	ks, err := p.FindKeyStore("MDATestToken5110", "0255df11")
+	ks, err := testEToken()
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}
@@ -168,12 +185,7 @@ func TestEtokenRsaImport(t *testing.T) {
 }
 
 func TestEtokenECCImport(t *testing.T) {
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: etoken11Lib})
-	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
-		return "Passw0rd", nil
-	}
-
-	ks, err := p.FindKeyStore("MDATestToken5110", "0255df11")
+	ks, err := testEToken()
 	if err != nil {
 		t.Fatalf("%+v", err)
 	}

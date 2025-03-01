@@ -15,10 +15,10 @@ import (
 )
 
 type Pkcs11KeyStore struct {
-	provider  *Pkcs11Provider
-	slotId    uint
-	tokenInfo *p11api.TokenInfo
-	slotInfo  *p11api.SlotInfo
+	driverConfig *DriverLibConfig
+	slotId       uint
+	tokenInfo    *p11api.TokenInfo
+	slotInfo     *p11api.SlotInfo
 
 	knownRSAPubKeys          []*RSAPublicKeyAttributes
 	knownRSAPrivKeys         []*RSAPrivateKeyAttributes
@@ -259,7 +259,7 @@ func (ks *Pkcs11KeyStore) destroyObject(sess *Pkcs11Session, class CK_OBJECT_CLA
 	// Query all object handle
 	attrs := make([]*p11api.Attribute, 0)
 	if class != 0 {
-		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_CLASS, Value: bytesFrom_CK_OBJECT_CLASS(class, ks.provider.ckULONGis32bit)})
+		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_CLASS, Value: bytesFrom_CK_OBJECT_CLASS(class, ks.driverConfig.CkULONGis32bit)})
 	}
 	if id != nil {
 		attrs = append(attrs, &p11api.Attribute{Type: p11api.CKA_ID, Value: bytesFrom_CK_Bytes(id)})

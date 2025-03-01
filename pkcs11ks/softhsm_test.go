@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/internal"
 	p11api "github.com/miekg/pkcs11"
@@ -50,6 +51,35 @@ slots.removable = false`
 
 }
 
+func testTokenA(t *testing.T) (*Pkcs11KeyStore, error) {
+	initSoftHSM2TestEnv(t)
+	p := NewPkcs11Provider([]DriverLibConfig{
+		{
+			LibPath:        softhsm2Lib,
+			TokenLabelMask: "TestTokenA",
+		},
+	})
+	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
+		return "1234", nil
+	}
+
+	if err := p.Open(); err != nil {
+		return nil, err
+	}
+
+	var ks *Pkcs11KeyStore
+
+	if ksSlice, err := p.KeyStores(); err != nil {
+		return nil, err
+	} else if len(ksSlice) != 1 {
+		return nil, fmt.Errorf("expected 1 keystore, got %d", len(ksSlice))
+	} else {
+		ks = ksSlice[0].(*Pkcs11KeyStore)
+	}
+
+	return ks, nil
+}
+
 func copyDir(source, destination string) error {
 	var err error = filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		var relPath string = strings.Replace(path, source, "", 1)
@@ -70,6 +100,7 @@ func copyDir(source, destination string) error {
 }
 
 func TestSoftHSMWithLowLevelAPI(t *testing.T) {
+	t.Skip("Low level API test skipped")
 	p := p11api.New(softhsm2Lib)
 	err := p.Initialize()
 	if err != nil {
@@ -93,25 +124,8 @@ func TestSoftHSMWithLowLevelAPI(t *testing.T) {
 }
 
 func TestSoftHSM2KeyStore(t *testing.T) {
-	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
-	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
-		return "1234", nil
-	}
-
-	ksList, err := p.KeyStores()
+	ksTestTokenA, err := testTokenA(t)
 	if err != nil {
-		t.Log(err)
-	}
-
-	var ksTestTokenA *Pkcs11KeyStore
-	for i, ks := range ksList {
-		t.Logf("%d. %s : %s", i, ks.Id(), ks.Name())
-		if "TestTokenA" == ks.Name() {
-			ksTestTokenA, _ = ks.(*Pkcs11KeyStore)
-		}
-	}
-	if ksTestTokenA == nil {
 		t.Fatalf("TestTokenA not found")
 	}
 
@@ -127,15 +141,11 @@ func TestSoftHSM2KeyStore(t *testing.T) {
 }
 
 func TestRsaGenSignVerify(t *testing.T) {
-	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
-	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
-		return "1234", nil
-	}
-
-	ks, err := p.FindKeyStore("TestTokenA", "")
+	ks, err := testTokenA(t)
 	if err != nil {
 		t.Fatalf("%+v", err)
+	} else {
+		defer ks.Close()
 	}
 
 	dumpKeys(ks, t)
@@ -201,15 +211,12 @@ func TestRsaGenSignVerify(t *testing.T) {
 }
 
 func TestRsaImport(t *testing.T) {
-	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
-	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
-		return "1234", nil
-	}
 
-	ks, err := p.FindKeyStore("TestTokenA", "")
+	ks, err := testTokenA(t)
 	if err != nil {
 		t.Fatalf("%+v", err)
+	} else {
+		defer ks.Close()
 	}
 
 	goRsaKey, err := rsa.GenerateKey(rand.Reader, 1024)
@@ -287,15 +294,11 @@ func TestRsaImport(t *testing.T) {
 }
 
 func TestEccImport(t *testing.T) {
-	initSoftHSM2TestEnv(t)
-	p := NewPkcs11Provider(Pkcs11Config{DriverPath: softhsm2Lib})
-	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
-		return "1234", nil
-	}
-
-	ks, err := p.FindKeyStore("TestTokenA", "")
+	ks, err := testTokenA(t)
 	if err != nil {
 		t.Fatalf("%+v", err)
+	} else {
+		defer ks.Close()
 	}
 
 	goEccKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)

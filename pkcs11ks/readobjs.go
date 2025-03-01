@@ -87,7 +87,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects(sess *Pkcs11Session) (retErr error)
 
 		if objClass == p11api.CKO_PUBLIC_KEY && keyType == p11api.CKK_RSA {
 			var pubKey RSAPublicKeyAttributes
-			if err := getP11Attributes(sess, hObj, &pubKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(sess, hObj, &pubKey, ks.driverConfig.CkULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -95,7 +95,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects(sess *Pkcs11Session) (retErr error)
 			}
 		} else if objClass == p11api.CKO_PRIVATE_KEY && keyType == p11api.CKK_RSA {
 			var privKey RSAPrivateKeyAttributes
-			if err := getP11Attributes(sess, hObj, &privKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(sess, hObj, &privKey, ks.driverConfig.CkULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -103,7 +103,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects(sess *Pkcs11Session) (retErr error)
 			}
 		} else if objClass == p11api.CKO_PUBLIC_KEY && keyType == p11api.CKK_EC {
 			var pubKey ECCPublicKeyAttributes
-			if err := getP11Attributes(sess, hObj, &pubKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(sess, hObj, &pubKey, ks.driverConfig.CkULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -111,7 +111,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects(sess *Pkcs11Session) (retErr error)
 			}
 		} else if objClass == p11api.CKO_PRIVATE_KEY && keyType == p11api.CKK_EC {
 			var privKey ECCPrivateKeyAttributes
-			if err := getP11Attributes(sess, hObj, &privKey, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(sess, hObj, &privKey, ks.driverConfig.CkULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {
@@ -119,7 +119,7 @@ func (ks *Pkcs11KeyStore) readStorageObjects(sess *Pkcs11Session) (retErr error)
 			}
 		} else {
 			var otherObj CommonStorageObjectAttributes
-			if err := getP11Attributes(sess, hObj, &otherObj, ks.provider.ckULONGis32bit, skipSensitiveAttrs); err != nil {
+			if err := getP11Attributes(sess, hObj, &otherObj, ks.driverConfig.CkULONGis32bit, skipSensitiveAttrs); err != nil {
 				retErr = errors.Join(retErr, keystores.ErrorHandler(err))
 				continue
 			} else {

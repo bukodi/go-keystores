@@ -7,10 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/asn1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
-	"github.com/pkg/errors"
 	"io"
 	"math/big"
 )
@@ -82,10 +82,10 @@ func (ks *Pkcs11KeyStore) createECCKeyPair(sess *Pkcs11Session, opts keystores.G
 
 	var privKeyAttrs ECCPrivateKeyAttributes
 	var pubKeyAttrs ECCPublicKeyAttributes
-	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -169,10 +169,10 @@ func (ks *Pkcs11KeyStore) importECCKeyPair(sess *Pkcs11Session, ecdsaPrivKey *ec
 
 	var privKeyAttrs ECCPrivateKeyAttributes
 	var pubKeyAttrs ECCPublicKeyAttributes
-	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -191,7 +191,7 @@ func (kp *Pkcs11KeyPair) exportECCPrivateKey(sess *Pkcs11Session) (*ecdsa.Privat
 		return nil, keystores.ErrorHandler(err)
 	}
 	var privKeyAttrs ECCPrivateKeyAttributes
-	if err := getP11Attributes(sess, hPrivKey, &privKeyAttrs, kp.keyStore.provider.ckULONGis32bit, false); err != nil {
+	if err := getP11Attributes(sess, hPrivKey, &privKeyAttrs, kp.keyStore.driverConfig.CkULONGis32bit, false); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -290,7 +290,7 @@ func (kp *Pkcs11KeyPair) ecdhAgree(sess *Pkcs11Session, remote *ecdsa.PublicKey)
 		p11api.NewMechanism(p11api.CKM_ECDH1_DERIVE, &params),
 	}
 
-	fmt.Printf("template before DeriveKey (ckULONGis32bit is %t): \n%s", kp.keyStore.provider.ckULONGis32bit, dumpAttrs(template))
+	fmt.Printf("template before DeriveKey (ckULONGis32bit is %t): \n%s", kp.keyStore.driverConfig.CkULONGis32bit, dumpAttrs(template))
 
 	var hSharedKey p11api.ObjectHandle
 	if hSharedKey, err = sess.ctx.DeriveKey(sess.hSession, mech, hPrivKey, template); err != nil {

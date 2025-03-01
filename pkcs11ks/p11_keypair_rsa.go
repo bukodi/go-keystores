@@ -54,10 +54,10 @@ func (ks *Pkcs11KeyStore) createRSAKeyPair(sess *Pkcs11Session, opts keystores.G
 
 	var privKeyAttrs RSAPrivateKeyAttributes
 	var pubKeyAttrs RSAPublicKeyAttributes
-	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -131,10 +131,10 @@ func (ks *Pkcs11KeyStore) importRSAKeyPair(sess *Pkcs11Session, rsaPrivKey *rsa.
 
 	var privKeyAttrs RSAPrivateKeyAttributes
 	var pubKeyAttrs RSAPublicKeyAttributes
-	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPriv, &privKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
-	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.provider.ckULONGis32bit, true); err != nil {
+	if err := getP11Attributes(sess, hPub, &pubKeyAttrs, ks.driverConfig.CkULONGis32bit, true); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
@@ -153,7 +153,7 @@ func (kp *Pkcs11KeyPair) exportRSAPrivateKey(sess *Pkcs11Session) (*rsa.PrivateK
 		return nil, keystores.ErrorHandler(err)
 	}
 	var privKeyAttrs RSAPrivateKeyAttributes
-	if err := getP11Attributes(sess, hPrivKey, &privKeyAttrs, kp.keyStore.provider.ckULONGis32bit, false); err != nil {
+	if err := getP11Attributes(sess, hPrivKey, &privKeyAttrs, kp.keyStore.driverConfig.CkULONGis32bit, false); err != nil {
 		return nil, keystores.ErrorHandler(err)
 	}
 
