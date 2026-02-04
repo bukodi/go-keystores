@@ -9,12 +9,13 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"github.com/go-piv/piv-go/piv"
 	"math/big"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-piv/piv-go/v2/piv"
 )
 
 func TestYubikey(t *testing.T) {
@@ -46,9 +47,10 @@ func TestYubikey(t *testing.T) {
 
 	// Change Master password
 	// Set all values to a new value.
-	/*var newKey [24]byte
-	for i:= 0; i < len(newKey); i ++ {
-		newKey[i] = 7
+	/*newKey := []byte{
+		0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
 	}
 
 	if err := yk.SetManagementKey(newKey, piv.DefaultManagementKey); err != nil {

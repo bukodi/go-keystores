@@ -3,8 +3,9 @@ package yubiks
 import (
 	"crypto"
 	"fmt"
+
 	"github.com/bukodi/go-keystores"
-	"github.com/go-piv/piv-go/piv"
+	"github.com/go-piv/piv-go/v2/piv"
 )
 
 type YkKeyStore struct {

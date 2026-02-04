@@ -6,9 +6,10 @@ import (
 	"crypto/rand"
 	"flag"
 	"fmt"
+	"strconv"
+
 	"github.com/bukodi/go-keystores"
 	"github.com/bukodi/go-keystores/pkcs11ks"
-	"strconv"
 )
 
 // Example:
@@ -29,17 +30,25 @@ func main() {
 		return
 	}
 
-	p := pkcs11ks.NewPkcs11Provider(pkcs11ks.ProviderConfig{
-		DriverPath:     *pDriver,
-		CkULONGis32bit: true,
-	})
+	p := pkcs11ks.NewPkcs11Provider([]pkcs11ks.DriverLibConfig{{LibPath: *pDriver, CkULONGis32bit: true}})
 	p.PINAuthenticator = func(ksDesc string, keyDesc string, isSO bool) (string, error) {
 		return *pPIN, nil
 	}
 
-	ks, err := p.FindKeyStore("", *pSerial)
+	ksSlice, err := p.KeyStores()
 	if err != nil {
 		fmt.Printf("FATAL: Can't open eToken. %+v\n", err)
+		return
+	}
+	var ks keystores.KeyStore
+	for _, k := range ksSlice {
+		if k.Id() == *pSerial {
+			ks = k
+			break
+		}
+	}
+	if ks == nil {
+		fmt.Printf("FATAL: Can't find eToken with serial %s\n", *pSerial)
 		return
 	}
 

@@ -3,9 +3,10 @@ package yubiks
 import (
 	"errors"
 	"fmt"
-	"github.com/bukodi/go-keystores"
-	"github.com/go-piv/piv-go/piv"
 	"strings"
+
+	"github.com/bukodi/go-keystores"
+	"github.com/go-piv/piv-go/v2/piv"
 )
 
 type YkProvider struct {
