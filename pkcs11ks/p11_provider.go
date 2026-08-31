@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/bukodi/go-keystores"
-	p11api "github.com/miekg/pkcs11"
 	"path/filepath"
 	"sync"
+
+	"github.com/bukodi/go-keystores"
+	p11api "github.com/miekg/pkcs11"
 )
 
 type ProviderConfig []DriverLibConfig
@@ -72,7 +73,7 @@ func (driverCfg *DriverLibConfig) listTokens(ctx context.Context, chKs chan<- *P
 		chErr <- fmt.Errorf("can't open driver: %s", driverCfg.LibPath)
 		return
 	} else {
-		pkgSlog.Debug("Driver loaded", "libPath", driverCfg.LibPath)
+		pkgSlog.DebugContext(ctx, "Driver loaded", "libPath", driverCfg.LibPath)
 	}
 
 	if ctx.Err() != nil {
@@ -83,13 +84,19 @@ func (driverCfg *DriverLibConfig) listTokens(ctx context.Context, chKs chan<- *P
 	err := driverCfg.pkcs11Ctx.Initialize()
 	if err != nil {
 		if errors.Is(err, p11api.Error(p11api.CKR_CRYPTOKI_ALREADY_INITIALIZED)) {
-			pkgSlog.Warn("Driver already initialized", "libPath", driverCfg.LibPath)
+			pkgSlog.WarnContext(ctx, "Driver already initialized", "libPath", driverCfg.LibPath)
 		} else {
 			chErr <- fmt.Errorf("can't initialize driver (%s): %w", driverCfg.LibPath, err)
 			return
 		}
 	} else {
-		pkgSlog.Debug("Driver initialized", "libPath", driverCfg.LibPath)
+		pkgSlog.DebugContext(ctx, "Driver initialized", "libPath", driverCfg.LibPath)
+		info, err := driverCfg.pkcs11Ctx.GetInfo()
+		if err != nil {
+			chErr <- fmt.Errorf("can't get driver info (%s): %w", driverCfg.LibPath, err)
+			return
+		}
+		pkgSlog.DebugContext(ctx, "Driver info", "libPath", driverCfg.LibPath, "info", info)
 	}
 
 	if ctx.Err() != nil {
@@ -102,7 +109,7 @@ func (driverCfg *DriverLibConfig) listTokens(ctx context.Context, chKs chan<- *P
 		chErr <- fmt.Errorf("can't query slots (%s): %w", driverCfg.LibPath, err)
 		return
 	} else {
-		pkgSlog.Debug("Slots queried", "libPath", driverCfg.LibPath, "slotIds", slotIds)
+		pkgSlog.DebugContext(ctx, "Slots queried", "libPath", driverCfg.LibPath, "slotIds", slotIds)
 	}
 
 	if ctx.Err() != nil {
@@ -132,7 +139,7 @@ func (driverCfg *DriverLibConfig) listTokens(ctx context.Context, chKs chan<- *P
 		}
 
 		if err := filterMasks(driverCfg, &si, &ti); err != nil {
-			pkgSlog.Debug("Token skipped", "libPath", driverCfg.LibPath, "slotId", slotId, "tokenName", ti.Label, "err", err)
+			pkgSlog.DebugContext(ctx, "Token skipped", "libPath", driverCfg.LibPath, "slotId", slotId, "tokenName", ti.Label, "err", err)
 			continue
 		}
 
@@ -143,7 +150,7 @@ func (driverCfg *DriverLibConfig) listTokens(ctx context.Context, chKs chan<- *P
 			slotInfo:     &si,
 		}
 		chKs <- &ks
-		pkgSlog.Info("Token found", "libPath", driverCfg.LibPath, "slotId", slotId, "tokenName", ti.Label)
+		pkgSlog.InfoContext(ctx, "Token found", "libPath", driverCfg.LibPath, "slotId", slotId, "tokenName", ti.Label)
 	}
 }
 

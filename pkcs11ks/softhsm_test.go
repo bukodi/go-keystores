@@ -9,14 +9,16 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"github.com/bukodi/go-keystores"
-	"github.com/bukodi/go-keystores/internal"
-	p11api "github.com/miekg/pkcs11"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/bukodi/go-keystores"
+	"github.com/bukodi/go-keystores/internal"
+	p11api "github.com/miekg/pkcs11"
 )
 
 var softhsm2Lib = ""
@@ -141,6 +143,7 @@ func TestSoftHSM2KeyStore(t *testing.T) {
 }
 
 func TestRsaGenSignVerify(t *testing.T) {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 	ks, err := testTokenA(t)
 	if err != nil {
 		t.Fatalf("%+v", err)

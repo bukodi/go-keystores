@@ -6,9 +6,10 @@ import (
 	"crypto/rsa"
 	"errors"
 	"fmt"
+	"io"
+
 	"github.com/bukodi/go-keystores"
 	p11api "github.com/miekg/pkcs11"
-	"io"
 )
 
 type Pkcs11KeyPair struct {
@@ -215,7 +216,7 @@ func (kp *Pkcs11KeyPair) Destroy() (retErr error) {
 		} else if cntDelete > 1 {
 			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("more than one object with (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
 		} else if cntDelete == 0 {
-			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("public key not deleted (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
+			retErr = errors.Join(retErr, keystores.ErrorHandler(fmt.Errorf("public key isn't deleted (CKA_CLASS=%v and CKA_ID=%v)", kp.commonPublicKeyAttributes().CKA_CLASS, kp.commonPublicKeyAttributes().CKA_ID)))
 		}
 	}
 

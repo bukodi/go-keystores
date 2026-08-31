@@ -9,9 +9,10 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
-	"github.com/bukodi/go-keystores"
 	"reflect"
 	"testing"
+
+	"github.com/bukodi/go-keystores"
 )
 
 func CreateKeyPairForTests(t *testing.T, ks keystores.KeyStore, opts keystores.GenKeyPairOpts) (keystores.KeyPair, func(kp keystores.KeyPair)) {
@@ -104,7 +105,7 @@ func EncryptDecryptTest(t *testing.T, kp keystores.KeyPair) {
 			t.Logf("PKCS#1 1.5 encrypt - decrypt successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 		}
 		if err := rsaEncryptDecryptOAEP(kp, plainText); err != nil {
-			t.Logf("Known Bug: RSA OAEP encrypt - decrypt failed: %s (%#v)", err.Error(), err)
+			t.Errorf("RSA OAEP encrypt - decrypt failed: %s (%#v)", err.Error(), err)
 		} else {
 			t.Logf("RSA OAEP encrypt - decrypt successfull with keypair: %s (ID:%s)", kp.Label(), kp.Id())
 		}
