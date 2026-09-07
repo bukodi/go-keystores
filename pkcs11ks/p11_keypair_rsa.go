@@ -6,10 +6,11 @@ import (
 	"crypto/rsa"
 	"encoding/hex"
 	"fmt"
-	"github.com/bukodi/go-keystores"
-	p11api "github.com/miekg/pkcs11"
 	"io"
 	"math/big"
+
+	"github.com/bukodi/go-keystores"
+	p11api "github.com/miekg/pkcs11"
 )
 
 // newRSAKeyPair creates a new Pkcs11KeyPair instance from the existing PKCS11 objects
@@ -254,6 +255,7 @@ func (kp *Pkcs11KeyPair) rsaDecrypt(sess *Pkcs11Session, rand io.Reader, ciphert
 		}
 
 		mechParams := p11api.NewOAEPParams(hMech, mgf, p11api.CKZ_DATA_SPECIFIED, oaepOpts.Label)
+		mechParams.SourceData = nil
 		//TODO: mechParams = p11api.NewOAEPParams(p11api.CKM_SHA3_256, p11api.CKG_MGF1_SHA256, p11api.CKZ_DATA_SPECIFIED, nil)
 		mech = []*p11api.Mechanism{p11api.NewMechanism(p11api.CKM_RSA_PKCS_OAEP, mechParams)}
 	} else {

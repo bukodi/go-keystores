@@ -20,8 +20,8 @@ func findSofthsmDriver() (string, error) {
 
 	//var softhsm2Lib = "libsofthsm2.so"
 
-	var libPath = "/usr/local/lib/softhsm/libsofthsm2.so"
-	//var libPath = "/usr/lib/softhsm/libsofthsm2.so"
+	// var libPath = "/tmp/0831/libsofthsm2.so"
+	var libPath = "/usr/lib/softhsm/libsofthsm2.so"
 	if _, err := os.Stat(libPath); err == nil {
 		return libPath, nil
 	} else {

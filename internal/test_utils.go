@@ -6,7 +6,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/rsa"
-	"crypto/sha1"
 	"crypto/sha256"
 	"fmt"
 	"reflect"
@@ -75,15 +74,16 @@ func rsaEncryptDecryptPKCSv15(kp keystores.KeyPair, plainText []byte) error {
 }
 
 func rsaEncryptDecryptOAEP(kp keystores.KeyPair, plainText []byte) error {
+
 	// The SoftHSM 2.6.1 only supports the SHA1 hash
 
 	label := []byte("testLabel")
-	cipherText, err := rsa.EncryptOAEP(sha1.New(), rand.Reader, kp.Public().(*rsa.PublicKey), plainText, label)
+	cipherText, err := rsa.EncryptOAEP(sha256.New(), rand.Reader, kp.Public().(*rsa.PublicKey), plainText, label)
 	if err != nil {
 		return err
 	}
 	plainText2, err := kp.Decrypt(rand.Reader, cipherText, &rsa.OAEPOptions{
-		Hash:  crypto.SHA1,
+		Hash:  crypto.SHA256,
 		Label: label,
 	})
 	if err != nil {
